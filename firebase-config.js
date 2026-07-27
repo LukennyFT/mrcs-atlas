@@ -17,13 +17,11 @@
 // is why publishing those rules is not optional.
 // ===================================================================
 
-window.FIREBASE_CONFIG = null;
-
-// window.FIREBASE_CONFIG = {
-//   apiKey: "…",
-//   authDomain: "your-project.firebaseapp.com",
-//   projectId: "your-project",
-//   storageBucket: "your-project.firebasestorage.app",
-//   messagingSenderId: "…",
-//   appId: "…"
-// };
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA7DjxfQwVrCOP18jrIYxrKHLu4oSrk5GE",
+  authDomain: "mrcs-atlas.firebaseapp.com",
+  projectId: "mrcs-atlas",
+  storageBucket: "mrcs-atlas.firebasestorage.app",
+  messagingSenderId: "1030729636361",
+  appId: "1:1030729636361:web:16ae15fb291c96783ff6d8"
+};
