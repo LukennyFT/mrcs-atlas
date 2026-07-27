@@ -7,7 +7,7 @@
  * That is what tells installed devices to fetch the new files; without it they
  * keep serving the old cached copy.
  */
-const CACHE = "mrcs-atlas-v5";
+const CACHE = "mrcs-atlas-v6";
 
 const ASSETS = [
   "./",
