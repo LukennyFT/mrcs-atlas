@@ -1,0 +1,20 @@
+{
+  "name": "MRCS Part A — Atlas",
+  "short_name": "MRCS Atlas",
+  "description": "A revision atlas of the whole Intercollegiate MRCS Part A syllabus — 298 topics and a single-best-answer question bank, mapped to all 300 marks.",
+  "lang": "en-GB",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "orientation": "any",
+  "background_color": "#f6f2ea",
+  "theme_color": "#f6f2ea",
+  "categories": ["education", "medical"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

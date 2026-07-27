@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="MRCS Theatre" />
+<meta name="theme-color" content="#0c0f13" />
+<title>MRCS Part A — Theatre</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E🔬%3C/text%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#0c0f13; --panel:#141920; --panel2:#1b212a; --line:#242c37;
+    --ink:#dde5ee; --ink2:#8c99a8; --ink3:#5d6875;
+    --accent:#19b8a6; --accent2:#0e7c70; --accent-dim:#0f2a29;
+    --p1:#2a9d8f; --p2:#c1666b;
+    --red:#e05260; --amber:#e0a33e; --green:#3fb96b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;min-height:100vh;background:var(--bg);overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
+  body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+       padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  button{font-family:inherit;touch-action:manipulation;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea,select{font-family:inherit}
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:#2b3441;border-radius:5px}
+  .noscroll::-webkit-scrollbar{display:none}
+  .noscroll{scrollbar-width:none}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:transparent;outline:none;padding:0;--pct:0%}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+    background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--pct),#232b36 var(--pct),#232b36 100%)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:3px;background:var(--accent);
+    border:2px solid #0c0f13;margin-top:-6px;box-shadow:0 0 0 1px var(--accent)}
+  input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:#232b36}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:3px;background:var(--accent);border:2px solid #0c0f13}
+  .rail-btn{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;padding:11px 4px;border-left:3px solid transparent;
+    color:var(--ink3);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;transition:.12s}
+  .rail-btn:hover{color:var(--ink2);background:#11161c}
+  .rail-btn.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-dim)}
+  .row:hover{background:#171d25}
+  @media (max-width:880px){
+    .rail{position:fixed;bottom:0;left:0;right:0;top:auto !important;width:100% !important;height:auto !important;
+      flex-direction:row !important;border-right:none !important;border-top:1px solid var(--line);z-index:40;
+      padding-bottom:env(safe-area-inset-bottom)}
+    .rail-brand{display:none !important}
+    .rail-inner{flex:none !important}
+    .rail-list{flex-direction:row !important}
+    .rail-btn{border-left:none;border-top:3px solid transparent;padding:8px 2px}
+    .rail-btn.on{border-left-color:transparent;border-top-color:var(--accent)}
+    .main{margin-left:0 !important;padding-bottom:76px !important}
+    .hide-sm{display:none !important}
+    .show-sm{display:block !important}
+  }
+  .show-sm{display:none}
+</style>
+<script src="../../vendor/react.min.js"></script>
+<script src="../../vendor/react-dom.min.js"></script>
+<script src="../../vendor/babel.min.js"></script>
+<script src="../../data-anatomy.js"></script>
+<script src="../../data-physiology.js"></script>
+<script src="../../data-pathology.js"></script>
+<script src="../../data-conditions.js"></script>
+<script src="../../data-periop.js"></script>
+<script src="../../data-trauma.js"></script>
+<script src="../../data-core.js"></script>
+</head>
+<body>
+<div id="root"><div style="padding:3rem;color:#5d6875;font-family:monospace;text-align:center">Compiling… (first load only)</div></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+const SPECIALTIES = window.SPECIALTIES;
+const PHASES = window.PHASES;
+const TIPS = window.TIPS;
+const BLUEPRINT = window.BLUEPRINT;
+
+/* ---------------- storage ---------------- */
+const K = {
+  status:"mrcs_statuses", changed:"mrcs_status_changed_at", notes:"mrcs_notes",
+  hours:"mrcs_hours_per_week", exam:"mrcs_exam_date", start:"mrcs_plan_start",
+  view:"mrcs_v1_view", section:"mrcs_active_section", collapsed:"mrcs_v1_collapsed",
+  book:"mrcs_bookmarks", onboard:"mrcs_onboarded", day:"mrcs_day_overrides",
+};
+function load(key, fb){ try{ const v=localStorage.getItem(key); return v===null?fb:JSON.parse(v);}catch(e){return fb;} }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
+/* ---------------- timeline ---------------- */
+function localISO(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parseISO(s){ const p=String(s).split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+const DAY = 86400000;
+function daysBetween(a,b){ return Math.round((parseISO(b)-parseISO(a))/DAY); }
+function daysUntil(examISO){ return Math.max(0, Math.round((parseISO(examISO)-parseISO(localISO()))/DAY)); }
+function stepOf(startISO, examISO){
+  const total = Math.max(22, daysBetween(startISO, examISO));
+  const gone = Math.max(0, daysBetween(startISO, localISO()));
+  return Math.min(22, Math.max(1, Math.ceil((gone / total) * 22) || 1));
+}
+function phaseIdxOf(step){ for(let i=0;i<PHASES.length;i++){ if(step<=PHASES[i].weekEnd) return i; } return PHASES.length-1; }
+function realWeek(startISO){ return Math.max(1, Math.ceil((Math.max(0,daysBetween(startISO, localISO()))+1)/7)); }
+const fmtDate = iso => parseISO(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+
+/* ---------------- scoring ---------------- */
+const WEIGHT = { green:1, amber:0.6, red:0.3 };
+const UNSET_WEIGHT = 0.15;
+function sectionScore(sec, statuses){
+  const n = sec.conditions.length || 1;
+  let sum = 0, counts = {green:0,amber:0,red:0,unset:0};
+  sec.conditions.forEach(c=>{
+    const s = statuses[c.id];
+    if(s){ sum += WEIGHT[s]; counts[s]++; } else { sum += UNSET_WEIGHT; counts.unset++; }
+  });
+  return { frac: sum/n, counts, rated: n-counts.unset, total: n };
+}
+function overall(statuses){
+  let marks=0, got=0, rated=0, total=0;
+  SPECIALTIES.forEach(sec=>{
+    const sc = sectionScore(sec, statuses);
+    rated += sc.rated; total += sc.total;
+    if(sec.marks>0){ marks += sec.marks; got += sec.marks * sc.frac; }
+  });
+  return { marks, got, rated, total };
+}
+const pct = x => Math.round(x*100);
+function ragColor(s){ return s==="green"?"var(--green)":s==="amber"?"var(--amber)":s==="red"?"var(--red)":"#2b3441"; }
+function daysAgo(ts){ if(!ts) return null; return Math.floor((Date.now()-ts)/DAY); }
+
+/* ================= UI atoms ================= */
+function Rail({view, setView, examISO}){
+  const items=[["today","◉","Today"],["plan","▤","Plan"],["tracker","▦","Tracker"],["blueprint","▧","Blueprint"]];
+  const d = daysUntil(examISO);
+  return (
+    <div className="rail" style={{position:"fixed",top:0,left:0,bottom:0,width:78,background:"#0e1218",
+      borderRight:"1px solid var(--line)",display:"flex",flexDirection:"column",alignItems:"center",zIndex:30,
+      paddingTop:"env(safe-area-inset-top)"}}>
+      <div className="rail-brand" style={{padding:"16px 6px 12px",textAlign:"center",borderBottom:"1px solid var(--line)",width:"100%"}}>
+        <div style={{fontSize:20}}>🔬</div>
+        <div className="mono" style={{fontSize:9,color:"var(--ink3)",letterSpacing:".1em",marginTop:4}}>MRCS A</div>
+        <div className="mono" style={{fontSize:17,color:d<30?"var(--red)":"var(--accent)",fontWeight:700,marginTop:6}}>{d}</div>
+        <div className="mono" style={{fontSize:8,color:"var(--ink3)",letterSpacing:".1em"}}>DAYS</div>
+      </div>
+      <div style={{width:"100%",display:"flex",flexDirection:"row",justifyContent:"space-around",flex:1}}
+           className="rail-inner">
+        <div style={{width:"100%",display:"flex",flexDirection:"column"}} className="rail-list">
+          {items.map(([id,ic,label])=>(
+            <button key={id} className={"rail-btn"+(view===id?" on":"")} onClick={()=>setView(id)}>
+              <span style={{fontSize:17,lineHeight:1}}>{ic}</span><span>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Bar({counts, total, h=6}){
+  const w = k => ((counts[k]||0)/(total||1))*100;
+  return (
+    <div style={{height:h,background:"#1d242e",borderRadius:h/2,overflow:"hidden",display:"flex",width:"100%"}}>
+      <div style={{width:w("green")+"%",background:"var(--green)"}} />
+      <div style={{width:w("amber")+"%",background:"var(--amber)"}} />
+      <div style={{width:w("red")+"%",background:"var(--red)"}} />
+    </div>
+  );
+}
+
+function Card({children, style, pad=16}){
+  return <div style={{background:"var(--panel)",border:"1px solid var(--line)",borderRadius:6,padding:pad,...style}}>{children}</div>;
+}
+function Label({children, style}){
+  return <div className="mono" style={{fontSize:10,letterSpacing:".14em",textTransform:"uppercase",color:"var(--ink3)",...style}}>{children}</div>;
+}
+
+/* ================= TODAY ================= */
+function TodayView({statuses, hours, examISO, startISO, setView, setSection, dayOv, setDayType}){
+  const step = stepOf(startISO, examISO);
+  const pi = phaseIdxOf(step);
+  const phase = PHASES[pi];
+  const d = daysUntil(examISO);
+  const o = overall(statuses);
+  const key = localISO();
+  const auto = [0,6].includes(new Date().getDay()) ? "dayoff" : "working";
+  const eff = dayOv[key] || auto;
+  const scale = hours / (5*phase.weekdayHrsBase + 2*phase.dayOffHrsBase);
+  const DT = {zero:{l:"Zero",h:0,q:0},oncall:{l:"On-call",h:phase.weekdayHrsBase*scale/3,q:phase.qsPerWeekdayBase*scale/3},
+              working:{l:"Working",h:phase.weekdayHrsBase*scale,q:phase.qsPerWeekdayBase*scale},
+              dayoff:{l:"Day off",h:phase.dayOffHrsBase*scale,q:phase.qsPerDayOffBase*scale}};
+  const today = DT[eff];
+  const focus = phase.systems.filter(s=>{
+    const m = String(s.weeks).match(/Wks?\s*(\d+)(?:[–-](\d+))?/);
+    if(!m) return true;
+    const a=+m[1], b=m[2]?+m[2]:a; return step>=a && step<=b;
+  });
+  const weakest = SPECIALTIES.map(s=>({s, sc:sectionScore(s,statuses)}))
+    .filter(x=>x.s.marks>0).sort((a,b)=> (a.sc.frac*b.s.marks) - (b.sc.frac*a.s.marks)).slice(0,3);
+
+  return (
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:16}}>
+        <Card>
+          <Label>Days to exam</Label>
+          <div className="mono" style={{fontSize:38,fontWeight:700,color:d<30?"var(--red)":"var(--accent)",lineHeight:1.1,marginTop:6}}>{d}</div>
+          <div style={{fontSize:11,color:"var(--ink3)",marginTop:4}}>{fmtDate(examISO)}</div>
+        </Card>
+        <Card>
+          <Label>Phase</Label>
+          <div style={{fontSize:19,fontWeight:600,color:phase.color,marginTop:6}}>{phase.name}</div>
+          <div style={{fontSize:11,color:"var(--ink3)",marginTop:4}}>Step {step}/22 · week {realWeek(startISO)}</div>
+        </Card>
+        <Card>
+          <Label>Projected raw</Label>
+          <div className="mono" style={{fontSize:38,fontWeight:700,lineHeight:1.1,marginTop:6,
+            color:o.got/o.marks>0.65?"var(--green)":o.got/o.marks>0.5?"var(--amber)":"var(--red)"}}>{Math.round(o.got)}</div>
+          <div style={{fontSize:11,color:"var(--ink3)",marginTop:4}}>of {o.marks} marks · {pct(o.got/o.marks)}%</div>
+        </Card>
+        <Card>
+          <Label>Topics rated</Label>
+          <div className="mono" style={{fontSize:38,fontWeight:700,lineHeight:1.1,marginTop:6}}>{o.rated}</div>
+          <div style={{fontSize:11,color:"var(--ink3)",marginTop:4}}>of {o.total} in the syllabus</div>
+        </Card>
+      </div>
+
+      <Card style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+          <Label>What kind of day is today?</Label>
+          {dayOv[key] && <button onClick={()=>setDayType(key,null)} className="mono"
+            style={{fontSize:10,color:"var(--ink3)",textDecoration:"underline"}}>reset to auto</button>}
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+          {Object.keys(DT).map(t=>(
+            <button key={t} onClick={()=>setDayType(key, t===auto&&!dayOv[key]?null:t)}
+              style={{flex:"1 1 90px",padding:"9px 6px",borderRadius:4,fontSize:12,fontWeight:600,
+                background: eff===t?"var(--accent-dim)":"var(--panel2)",
+                color: eff===t?"var(--accent)":"var(--ink2)",
+                border:"1px solid "+(eff===t?"var(--accent2)":"var(--line)")}}>{DT[t].l}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:26,marginTop:14,paddingTop:14,borderTop:"1px solid var(--line)"}}>
+          <div><Label>Target hours</Label><div className="mono" style={{fontSize:26,fontWeight:700,color:"var(--accent)"}}>{today.h.toFixed(1)}</div></div>
+          <div><Label>Target questions</Label><div className="mono" style={{fontSize:26,fontWeight:700,color:"var(--accent)"}}>{Math.round(today.q)}</div></div>
+          <div style={{flex:1}}><Label>Weekly commitment</Label><div className="mono" style={{fontSize:26,fontWeight:700}}>{hours}<span style={{fontSize:13,color:"var(--ink3)"}}> h/wk</span></div></div>
+        </div>
+      </Card>
+
+      <Label style={{marginBottom:8}}>This week's focus — {phase.name}</Label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10,marginBottom:20}}>
+        {focus.map((s,i)=>(
+          <Card key={i} pad={13} style={{borderLeft:"3px solid "+phase.color}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+              <div style={{fontSize:13.5,fontWeight:600,lineHeight:1.35}}>{s.name}</div>
+              <span className="mono" style={{fontSize:9,padding:"2px 5px",borderRadius:3,height:"fit-content",whiteSpace:"nowrap",
+                background:s.priority==="HIGH"?"#3a1a1e":s.priority==="EXAM"?"#3a2c12":"#1c2733",
+                color:s.priority==="HIGH"?"#e88":s.priority==="EXAM"?"#eb4":"#7ab"}}>{s.priority}</span>
+            </div>
+            <div className="mono" style={{fontSize:10,color:"var(--ink3)",marginTop:6}}>{s.weeks}</div>
+            {s.trackerId && <button onClick={()=>{setSection(s.trackerId);setView("tracker");}}
+              style={{marginTop:9,fontSize:11.5,color:"var(--accent)"}}>Open in Tracker →</button>}
+          </Card>
+        ))}
+      </div>
+
+      <Label style={{marginBottom:8}}>Where an hour buys most — biggest marks at risk</Label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:10}}>
+        {weakest.map(({s,sc})=>(
+          <Card key={s.id} pad={13}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>{s.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.short}</div>
+                <div className="mono" style={{fontSize:10,color:"var(--ink3)"}}>{s.marks} marks · {pct(sc.frac)}% secured</div>
+              </div>
+            </div>
+            <div style={{marginTop:9}}><Bar counts={sc.counts} total={sc.total}/></div>
+            <button onClick={()=>{setSection(s.id);setView("tracker");}}
+              style={{marginTop:9,fontSize:11.5,color:"var(--accent)"}}>Revise →</button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= PLAN ================= */
+function PlanView({hours, setHours, examISO, startISO, setExam, setView, setSection}){
+  const step = stepOf(startISO, examISO);
+  const pi = phaseIdxOf(step);
+  const totalDays = Math.max(22, daysBetween(startISO, examISO));
+  const perStep = totalDays/22;
+  const dateOf = s => localISO(new Date(parseISO(startISO).getTime() + Math.round((s-1)*perStep)*DAY));
+
+  return (
+    <div>
+      <Card style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:10}}>
+          <Label>Hours per week you can genuinely sustain</Label>
+          <div className="mono" style={{fontSize:24,fontWeight:700,color:"var(--accent)"}}>{hours}</div>
+        </div>
+        <input type="range" min="3" max="40" value={hours} style={{marginTop:12,"--pct":((hours-3)/37*100)+"%"}}
+               onChange={e=>setHours(+e.target.value)} />
+        <div className="mono" style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--ink3)",marginTop:6}}>
+          <span>3</span><span>on-call heavy ← → protected time</span><span>40</span>
+        </div>
+        <div style={{marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)",display:"flex",gap:22,flexWrap:"wrap",alignItems:"center"}}>
+          <div><Label>Exam date</Label>
+            <input type="date" value={examISO} onChange={e=>e.target.value&&setExam(e.target.value)}
+              style={{marginTop:6,background:"var(--panel2)",border:"1px solid var(--line)",color:"var(--ink)",
+                padding:"7px 9px",borderRadius:4,fontSize:13,colorScheme:"dark"}} />
+          </div>
+          <div><Label>Plan runs</Label>
+            <div className="mono" style={{fontSize:13,marginTop:9,color:"var(--ink2)"}}>{fmtDate(startISO)} → {fmtDate(examISO)} · {totalDays} days</div>
+          </div>
+        </div>
+      </Card>
+
+      {PHASES.map((p,i)=>{
+        const on = i===pi;
+        return (
+          <Card key={p.id} style={{marginBottom:12,borderLeft:"3px solid "+p.color, background: on?"var(--panel2)":"var(--panel)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <span style={{fontSize:17,fontWeight:700,color:p.color}}>{p.name}</span>
+                  {on && <span className="mono" style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:p.color,color:"#0c0f13",fontWeight:700}}>CURRENT</span>}
+                </div>
+                <div className="mono" style={{fontSize:10.5,color:"var(--ink3)",marginTop:5}}>
+                  {p.weeks} · {fmtDate(dateOf(p.weekStart))} → {fmtDate(dateOf(p.weekEnd))}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:18}}>
+                <div style={{textAlign:"right"}}><Label>Weekday</Label>
+                  <div className="mono" style={{fontSize:15,fontWeight:600}}>{(p.weekdayHrsBase*(hours/(5*p.weekdayHrsBase+2*p.dayOffHrsBase))).toFixed(1)}h</div></div>
+                <div style={{textAlign:"right"}}><Label>Day off</Label>
+                  <div className="mono" style={{fontSize:15,fontWeight:600}}>{(p.dayOffHrsBase*(hours/(5*p.weekdayHrsBase+2*p.dayOffHrsBase))).toFixed(1)}h</div></div>
+              </div>
+            </div>
+            <p style={{fontSize:13.5,lineHeight:1.65,color:"var(--ink2)",margin:"13px 0 0"}}>{p.goal}</p>
+            <ul style={{margin:"12px 0 0",paddingLeft:17,fontSize:12.5,lineHeight:1.7,color:"var(--ink2)"}}>
+              {p.strategy.map((s,j)=><li key={j} style={{marginBottom:5}}>{s}</li>)}
+            </ul>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:13,paddingTop:12,borderTop:"1px solid var(--line)"}}>
+              {p.systems.map((s,j)=>(
+                <button key={j} onClick={()=>{ if(s.trackerId){setSection(s.trackerId);setView("tracker");} }}
+                  style={{fontSize:11.5,padding:"5px 9px",borderRadius:4,background:"#11161c",border:"1px solid var(--line)",
+                    color:s.trackerId?"var(--accent)":"var(--ink3)",cursor:s.trackerId?"pointer":"default"}}>
+                  {s.name} <span className="mono" style={{color:"var(--ink3)"}}>· {s.weeks}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        );
+      })}
+
+      <Label style={{margin:"22px 0 8px"}}>Strategy</Label>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
+        {TIPS.map((t,i)=>(
+          <Card key={i} pad={14}>
+            <div style={{display:"flex",gap:9,alignItems:"center"}}><span style={{fontSize:17}}>{t.icon}</span>
+              <span style={{fontSize:13.5,fontWeight:600}}>{t.title}</span></div>
+            <p style={{fontSize:12.5,lineHeight:1.65,color:"var(--ink2)",margin:"9px 0 0"}}>{t.body}</p>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= TRACKER ================= */
+function TopicRow({c, sec, status, changed, note, setStatus, setNote, open, toggle}){
+  const labels = c.fieldLabels || sec.fieldLabels || ["Presentation","Investigations","Management"];
+  const rows = [];
+  if(c.presentation) rows.push([labels[0], c.presentation]);
+  if(c.investigations) rows.push([labels[1], c.investigations]);
+  if(c.treatment) rows.push([labels[2], c.treatment]);
+  if(c.complications) rows.push(["⚠️ Complications", c.complications]);
+  const ago = daysAgo(changed);
+  return (
+    <div style={{borderBottom:"1px solid var(--line)"}}>
+      <div className="row" style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",cursor:"pointer"}} onClick={toggle}>
+        <span style={{width:8,height:8,borderRadius:2,background:ragColor(status),flexShrink:0}} />
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13.5,lineHeight:1.4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.name}</div>
+        </div>
+        {note && <span style={{fontSize:11,color:"var(--accent)"}}>✎</span>}
+        {ago!==null && <span className="mono hide-sm" style={{fontSize:10,color:ago>21?"var(--amber)":"var(--ink3)",whiteSpace:"nowrap"}}>{ago}d</span>}
+        <div style={{display:"flex",gap:3}} onClick={e=>e.stopPropagation()}>
+          {["red","amber","green"].map(s=>(
+            <button key={s} onClick={()=>setStatus(c.id, status===s?null:s)} title={s}
+              style={{width:22,height:22,borderRadius:3,border:"1px solid "+(status===s?ragColor(s):"var(--line)"),
+                background: status===s?ragColor(s):"transparent"}} />
+          ))}
+        </div>
+        <span style={{color:"var(--ink3)",fontSize:11,width:10}}>{open?"▾":"▸"}</span>
+      </div>
+      {open && (
+        <div style={{padding:"4px 12px 16px 30px",background:"#10151b"}}>
+          {c.keyFacts && (
+            <div style={{background:"var(--accent-dim)",borderLeft:"2px solid var(--accent)",padding:"9px 11px",borderRadius:3,marginBottom:12}}>
+              <Label style={{color:"var(--accent)",marginBottom:4}}>💡 Must know</Label>
+              <div style={{fontSize:13,lineHeight:1.6}}>{c.keyFacts}</div>
+            </div>
+          )}
+          {rows.map(([l,v],i)=>(
+            <div key={i} style={{marginBottom:11}}>
+              <Label style={{marginBottom:4}}>{l}</Label>
+              <div style={{fontSize:13,lineHeight:1.68,color:"var(--ink2)",whiteSpace:"pre-line"}}>{v}</div>
+            </div>
+          ))}
+          <Label style={{marginTop:14,marginBottom:5}}>Your notes</Label>
+          <textarea value={note||""} onChange={e=>setNote(c.id, e.target.value)} rows={3}
+            placeholder="Wrong answers, mnemonics, page references…"
+            style={{width:"100%",background:"var(--panel)",border:"1px solid var(--line)",borderRadius:4,color:"var(--ink)",
+              padding:9,fontSize:12.5,lineHeight:1.6,resize:"vertical"}} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackerView({statuses, changedAt, notes, setStatus, setNote, section, setSection}){
+  const [q,setQ] = useState("");
+  const [filter,setFilter] = useState("all");
+  const [open,setOpen] = useState({});
+  const [collapsed,setCollapsed] = useState(()=>load(K.collapsed,{}));
+  useEffect(()=>save(K.collapsed,collapsed),[collapsed]);
+  const sec = SPECIALTIES.find(s=>s.id===section) || SPECIALTIES[0];
+
+  const clusters = useMemo(()=>{
+    const out=[]; const idx={};
+    sec.conditions.forEach(c=>{
+      const k = c.cluster || "Other";
+      if(idx[k]===undefined){ idx[k]=out.length; out.push({name:k, items:[]}); }
+      out[idx[k]].items.push(c);
+    });
+    return out;
+  },[sec]);
+
+  const ql = q.trim().toLowerCase();
+  const match = c => {
+    if(filter!=="all"){ const s=statuses[c.id]; if(filter==="unset"? !!s : s!==filter) return false; }
+    if(!ql) return true;
+    return (c.name+" "+(c.keyFacts||"")+" "+(c.presentation||"")+" "+(c.investigations||"")+" "+(c.treatment||"")+" "+(c.cluster||""))
+      .toLowerCase().includes(ql);
+  };
+  const forced = !!ql || filter!=="all";
+  const sc = sectionScore(sec, statuses);
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:10,marginBottom:12}} className="noscroll">
+        {SPECIALTIES.map(s=>{
+          const on = s.id===sec.id;
+          const ss = sectionScore(s,statuses);
+          return (
+            <button key={s.id} onClick={()=>setSection(s.id)}
+              style={{flexShrink:0,padding:"8px 12px",borderRadius:5,textAlign:"left",minWidth:132,
+                background: on?"var(--accent-dim)":"var(--panel)", border:"1px solid "+(on?"var(--accent2)":"var(--line)")}}>
+              <div style={{fontSize:12.5,fontWeight:600,color:on?"var(--accent)":"var(--ink)"}}>{s.icon} {s.short}</div>
+              <div className="mono" style={{fontSize:9.5,color:"var(--ink3)",marginTop:3}}>
+                {s.marks>0? s.marks+" marks":"cross-cutting"} · {ss.rated}/{ss.total}
+              </div>
+              <div style={{marginTop:5}}><Bar counts={ss.counts} total={ss.total} h={3}/></div>
+            </button>
+          );
+        })}
+      </div>
+
+      <Card pad={14} style={{marginBottom:12}}>
+        <div style={{display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 260px"}}>
+            <div style={{fontSize:17,fontWeight:700}}>{sec.icon} {sec.name}</div>
+            <div className="mono" style={{fontSize:10.5,color:"var(--ink3)",marginTop:4}}>
+              {sec.paper==="paper1"?"PAPER 1 · APPLIED BASIC SCIENCES":sec.paper==="paper2"?"PAPER 2 · PRINCIPLES OF SURGERY":"BOTH PAPERS"}
+              {sec.marks>0 && " · "+sec.marks+" MARKS"}
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <Label>Secured</Label>
+            <div className="mono" style={{fontSize:24,fontWeight:700,color:sc.frac>0.65?"var(--green)":sc.frac>0.45?"var(--amber)":"var(--red)"}}>{pct(sc.frac)}%</div>
+          </div>
+        </div>
+        <p style={{fontSize:12.5,lineHeight:1.65,color:"var(--ink2)",margin:"11px 0 0"}}>{sec.blurb}</p>
+        <div style={{marginTop:11}}><Bar counts={sc.counts} total={sc.total}/></div>
+        <div className="mono" style={{display:"flex",gap:14,fontSize:10,color:"var(--ink3)",marginTop:7}}>
+          <span style={{color:"var(--green)"}}>■ {sc.counts.green} confident</span>
+          <span style={{color:"var(--amber)"}}>■ {sc.counts.amber} shaky</span>
+          <span style={{color:"var(--red)"}}>■ {sc.counts.red} weak</span>
+          <span>□ {sc.counts.unset} not started</span>
+        </div>
+      </Card>
+
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder={"Search "+sec.conditions.length+" "+(sec.itemNoun||"topics")+"…"}
+          style={{flex:"1 1 200px",background:"var(--panel)",border:"1px solid var(--line)",borderRadius:4,color:"var(--ink)",padding:"9px 11px",fontSize:13}} />
+        <div style={{display:"flex",gap:4}}>
+          {[["all","All"],["red","Weak"],["amber","Shaky"],["green","Solid"],["unset","New"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setFilter(v)}
+              style={{padding:"8px 11px",borderRadius:4,fontSize:11.5,fontWeight:600,
+                background:filter===v?"var(--accent-dim)":"var(--panel)",color:filter===v?"var(--accent)":"var(--ink2)",
+                border:"1px solid "+(filter===v?"var(--accent2)":"var(--line)")}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {clusters.map(cl=>{
+        const items = cl.items.filter(match);
+        if(!items.length) return null;
+        const ckey = sec.id+"::"+cl.name;
+        const isOpen = forced || !collapsed[ckey];
+        const cc = {green:0,amber:0,red:0}; let un=0;
+        cl.items.forEach(c=>{ const s=statuses[c.id]; if(s) cc[s]++; else un++; });
+        return (
+          <div key={cl.name} style={{marginBottom:10,background:"var(--panel)",border:"1px solid var(--line)",borderRadius:6,overflow:"hidden"}}>
+            <button onClick={()=>setCollapsed({...collapsed,[ckey]:!collapsed[ckey]})}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"11px 12px",background:"var(--panel2)",textAlign:"left"}}>
+              <span style={{color:"var(--ink3)",fontSize:11}}>{isOpen?"▾":"▸"}</span>
+              <span style={{flex:1,fontSize:13,fontWeight:600}}>{cl.name}</span>
+              <span className="mono hide-sm" style={{fontSize:10,color:"var(--ink3)"}}>{cl.items.length-un}/{cl.items.length}</span>
+              <div style={{width:64}}><Bar counts={cc} total={cl.items.length} h={4}/></div>
+            </button>
+            {isOpen && items.map(c=>(
+              <TopicRow key={c.id} c={c} sec={sec} status={statuses[c.id]} changed={changedAt[c.id]} note={notes[c.id]}
+                setStatus={setStatus} setNote={setNote} open={!!open[c.id]} toggle={()=>setOpen({...open,[c.id]:!open[c.id]})} />
+            ))}
+          </div>
+        );
+      })}
+      {!clusters.some(cl=>cl.items.some(match)) &&
+        <Card style={{textAlign:"center",color:"var(--ink3)",fontSize:13}}>Nothing matches that filter.</Card>}
+    </div>
+  );
+}
+
+/* ================= BLUEPRINT ================= */
+function BlueprintView({statuses, setView, setSection}){
+  const o = overall(statuses);
+  const papers = BLUEPRINT.papers.map(p=>{
+    const secs = SPECIALTIES.filter(s=>s.paper===p.id && s.marks>0);
+    let got=0, marks=0;
+    secs.forEach(s=>{ const sc=sectionScore(s,statuses); got += s.marks*sc.frac; marks += s.marks; });
+    return {p, secs, got, marks};
+  });
+  const maxMarks = Math.max(...SPECIALTIES.map(s=>s.marks));
+
+  return (
+    <div>
+      <Card style={{marginBottom:16}}>
+        <Label>The official Part A blueprint</Label>
+        <p style={{fontSize:13.5,lineHeight:1.7,color:"var(--ink2)",margin:"9px 0 0"}}>
+          Part A is five hours: a three-hour paper of 180 Applied Basic Sciences questions, then a two-hour paper of 120
+          Principles of Surgery in General questions. A minimum standard must be reached in <strong style={{color:"var(--ink)"}}>each paper
+          separately</strong> as well as on the combined total, so a strong Paper 1 will not rescue a weak Paper 2.
+          Every bar below is scaled to the real number of marks at stake.
+        </p>
+        <div style={{display:"flex",gap:26,marginTop:16,paddingTop:14,borderTop:"1px solid var(--line)",flexWrap:"wrap"}}>
+          <div><Label>Projected raw score</Label>
+            <div className="mono" style={{fontSize:32,fontWeight:700,color:"var(--accent)"}}>{Math.round(o.got)}<span style={{fontSize:15,color:"var(--ink3)"}}> / {o.marks}</span></div></div>
+          <div><Label>Syllabus covered</Label>
+            <div className="mono" style={{fontSize:32,fontWeight:700}}>{pct(o.rated/o.total)}<span style={{fontSize:15,color:"var(--ink3)"}}>%</span></div></div>
+          <div style={{flex:1,minWidth:200}}><Label>How the projection works</Label>
+            <div style={{fontSize:11.5,lineHeight:1.6,color:"var(--ink3)",marginTop:5}}>
+              Confident counts 100% of a section's marks, shaky 60%, weak 30%, and untouched topics 15% (guesswork).
+              It is a motivational estimate, not a predicted result.
+            </div></div>
+        </div>
+      </Card>
+
+      {papers.map(({p,secs,got,marks})=>(
+        <div key={p.id} style={{marginBottom:20}}>
+          <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:4,flexWrap:"wrap"}}>
+            <span className="mono" style={{fontSize:11,letterSpacing:".14em",color:p.color,fontWeight:700}}>{p.short.toUpperCase()}</span>
+            <span style={{fontSize:17,fontWeight:700}}>{p.name}</span>
+            <span className="mono" style={{fontSize:11,color:"var(--ink3)"}}>{p.questions} questions · {p.minutes} min</span>
+            <span style={{flex:1}} />
+            <span className="mono" style={{fontSize:15,fontWeight:700,color:p.color}}>{Math.round(got)}/{marks}</span>
+          </div>
+          <p style={{fontSize:12.5,lineHeight:1.6,color:"var(--ink3)",margin:"0 0 12px"}}>{p.blurb}</p>
+          <Card pad={0}>
+            {secs.map((s,i)=>{
+              const sc = sectionScore(s,statuses);
+              return (
+                <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}}
+                  className="row" style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",textAlign:"left",
+                    borderTop: i? "1px solid var(--line)":"none"}}>
+                  <span style={{fontSize:19,width:24}}>{s.icon}</span>
+                  <div style={{flex:"0 0 130px",minWidth:0}}>
+                    <div style={{fontSize:13.5,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.short}</div>
+                    <div className="mono" style={{fontSize:10,color:"var(--ink3)"}}>{sc.rated}/{sc.total} rated</div>
+                  </div>
+                  <div style={{flex:1,minWidth:70}}>
+                    <div style={{height:22,background:"#1a212a",borderRadius:3,overflow:"hidden",position:"relative",
+                      width:(30+70*s.marks/maxMarks)+"%"}}>
+                      <div style={{position:"absolute",inset:0,display:"flex"}}>
+                        <div style={{width:(sc.counts.green/sc.total*100)+"%",background:"var(--green)"}} />
+                        <div style={{width:(sc.counts.amber/sc.total*100)+"%",background:"var(--amber)"}} />
+                        <div style={{width:(sc.counts.red/sc.total*100)+"%",background:"var(--red)"}} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mono" style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:15,fontWeight:700,color:p.color}}>{s.marks}</div>
+                    <div style={{fontSize:9.5,color:"var(--ink3)"}}>MARKS</div>
+                  </div>
+                  <div className="mono" style={{width:44,textAlign:"right",fontSize:13,fontWeight:600,
+                    color: sc.frac>0.65?"var(--green)":sc.frac>0.45?"var(--amber)":"var(--red)"}}>{pct(sc.frac)}%</div>
+                </button>
+              );
+            })}
+          </Card>
+        </div>
+      ))}
+
+      <Card>
+        <Label>Also in the syllabus but unweighted</Label>
+        {SPECIALTIES.filter(s=>s.marks===0).map(s=>{
+          const sc = sectionScore(s,statuses);
+          return (
+            <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}}
+              style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",marginTop:11}}>
+              <span style={{fontSize:19}}>{s.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13.5,fontWeight:600}}>{s.name}</div>
+                <div className="mono" style={{fontSize:10,color:"var(--ink3)"}}>{sc.rated}/{sc.total} rated · underpins Paper 2 and the Part B OSCE</div>
+              </div>
+              <div style={{width:90}}><Bar counts={sc.counts} total={sc.total}/></div>
+            </button>
+          );
+        })}
+      </Card>
+    </div>
+  );
+}
+
+/* ================= APP ================= */
+function App(){
+  const [view,setView] = useState(()=>load(K.view,"today"));
+  const [statuses,setStatuses] = useState(()=>load(K.status,{}));
+  const [changedAt,setChangedAt] = useState(()=>load(K.changed,{}));
+  const [notes,setNotes] = useState(()=>load(K.notes,{}));
+  const [hours,setHours] = useState(()=>load(K.hours,12));
+  const [examISO,setExam] = useState(()=>load(K.exam,window.EXAM_DATE));
+  const [startISO,setStart] = useState(()=>load(K.start,window.PLAN_START));
+  const [section,setSection] = useState(()=>load(K.section,SPECIALTIES[0].id));
+  const [dayOv,setDayOv] = useState(()=>load(K.day,{}));
+
+  useEffect(()=>save(K.view,view),[view]);
+  useEffect(()=>save(K.status,statuses),[statuses]);
+  useEffect(()=>save(K.changed,changedAt),[changedAt]);
+  useEffect(()=>save(K.notes,notes),[notes]);
+  useEffect(()=>save(K.hours,hours),[hours]);
+  useEffect(()=>save(K.exam,examISO),[examISO]);
+  useEffect(()=>save(K.start,startISO),[startISO]);
+  useEffect(()=>save(K.section,section),[section]);
+  useEffect(()=>save(K.day,dayOv),[dayOv]);
+  useEffect(()=>{ if(!load(K.start,null)) { setStart(localISO()); save(K.start, localISO()); } },[]);
+
+  const setStatus = (id,val)=>{
+    setStatuses(p=>{ const n={...p}; if(val) n[id]=val; else delete n[id]; return n; });
+    setChangedAt(p=>({...p,[id]:Date.now()}));
+  };
+  const setNote = (id,val)=> setNotes(p=>{ const n={...p}; if(val) n[id]=val; else delete n[id]; return n; });
+  const setDayType = (k,t)=> setDayOv(p=>{ const n={...p}; if(t) n[k]=t; else delete n[k]; return n; });
+
+  const titles = {today:["Today","What to do with the hours you actually have"],
+                  plan:["The Plan","Four phases, scaled to your real calendar"],
+                  tracker:["Tracker","Every topic in the Part A syllabus"],
+                  blueprint:["Blueprint","Your coverage weighted by marks at stake"]};
+  const [t,sub] = titles[view];
+
+  return (
+    <div>
+      <Rail view={view} setView={setView} examISO={examISO} />
+      <div className="main" style={{marginLeft:78,padding:"22px 22px 40px",maxWidth:1180,paddingTop:"calc(22px + env(safe-area-inset-top))"}}>
+        <div style={{marginBottom:20,display:"flex",alignItems:"flex-start",gap:12}}>
+          <div style={{flex:1}}>
+            <h1 style={{fontSize:26,fontWeight:700,margin:0,letterSpacing:"-0.02em"}}>{t}</h1>
+            <div style={{fontSize:13,color:"var(--ink3)",marginTop:4}}>{sub}</div>
+          </div>
+          <div className="show-sm mono" style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:22,fontWeight:700,color:daysUntil(examISO)<30?"var(--red)":"var(--accent)"}}>{daysUntil(examISO)}</div>
+            <div style={{fontSize:8,letterSpacing:".1em",color:"var(--ink3)"}}>DAYS</div>
+          </div>
+        </div>
+        {view==="today" && <TodayView statuses={statuses} hours={hours} examISO={examISO} startISO={startISO}
+          setView={setView} setSection={setSection} dayOv={dayOv} setDayType={setDayType} />}
+        {view==="plan" && <PlanView hours={hours} setHours={setHours} examISO={examISO} startISO={startISO}
+          setExam={setExam} setView={setView} setSection={setSection} />}
+        {view==="tracker" && <TrackerView statuses={statuses} changedAt={changedAt} notes={notes}
+          setStatus={setStatus} setNote={setNote} section={section} setSection={setSection} />}
+        {view==="blueprint" && <BlueprintView statuses={statuses} setView={setView} setSection={setSection} />}
+        <div className="mono" style={{marginTop:36,paddingTop:16,borderTop:"1px solid var(--line)",fontSize:10,color:"var(--ink3)",lineHeight:1.7}}>
+          VERSION 1 — “THEATRE” · {window.TOTAL_TOPICS} topics across {SPECIALTIES.length} sections<br/>
+          Content built from the Intercollegiate MRCS candidate guide (July 2018) and the ISCP Core Surgical Training syllabus.
+          Progress is shared with versions 2 and 3 on this device.
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

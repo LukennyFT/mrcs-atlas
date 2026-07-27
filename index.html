@@ -1,0 +1,1447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="MRCS Atlas" />
+<meta name="theme-color" content="#f6f2ea" />
+<title>MRCS Part A — Atlas</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E📕%3C/text%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<style>
+  :root{
+    --paper:#f6f2ea; --paper2:#fffdf8; --rule:#ddd4c4; --rule2:#c9bda8;
+    --ink:#1f1b16; --ink2:#5c5348; --ink3:#8e8271;
+    --oxblood:#8c2f39; --oxblood2:#a94a52; --oxblood-wash:#f3e6e5;
+    --teal:#2f6b6b; --teal-wash:#e6efee;
+    --l0:#c9bda8; --l1:#b5453f; --l2:#c08a2e; --l3:#3f7a4a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;min-height:100vh;background:var(--paper);-webkit-text-size-adjust:100%}
+  body{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+       color:var(--ink);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  h1,h2,h3{font-weight:600;letter-spacing:-0.01em;margin:0}
+  button{font-family:inherit;touch-action:manipulation;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea,select{font-family:inherit}
+  .sans{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .smallcaps{font-variant:small-caps;letter-spacing:.09em}
+  .noscroll::-webkit-scrollbar{display:none}
+  .noscroll{scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:var(--paper)}
+  ::-webkit-scrollbar-thumb{background:var(--rule2);border-radius:5px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:transparent;outline:none;padding:0;--pct:0%}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;
+    background:linear-gradient(to right,var(--oxblood) 0%,var(--oxblood) var(--pct),var(--rule2) var(--pct),var(--rule2) 100%)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+    background:var(--paper2);border:2px solid var(--oxblood);margin-top:-9px}
+  input[type=range]::-moz-range-track{height:2px;background:var(--rule2)}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--paper2);border:2px solid var(--oxblood)}
+  .chapter{border-bottom:2px solid transparent;padding:9px 2px;font-size:14px;color:var(--ink3);
+    white-space:nowrap;transition:.12s}
+  .chapter:hover{color:var(--ink)}
+  .chapter.on{color:var(--oxblood);border-bottom-color:var(--oxblood)}
+  .plate{background:var(--paper2);border:1px solid var(--rule);border-radius:2px}
+  .entry:hover{background:#fffefb}
+  .btn{border:1px solid var(--rule2);background:var(--paper2);padding:9px 16px;border-radius:2px;font-size:14px}
+  .btn:hover{background:#fff}
+  .btn-primary{background:var(--oxblood);border-color:var(--oxblood);color:#fff}
+  .btn-primary:hover{background:var(--oxblood2)}
+  .opt{display:flex;gap:13px;width:100%;text-align:left;padding:13px 15px;border:1px solid var(--rule);
+    background:var(--paper2);border-radius:2px;margin-bottom:9px;font-size:15px;line-height:1.6;transition:.12s}
+  .opt:hover{border-color:var(--rule2);background:#fff}
+  .opt.sel{border-color:var(--oxblood);background:var(--oxblood-wash)}
+  .opt.right{border-color:var(--l3);background:#e9f2ea}
+  .opt.wrong{border-color:var(--l1);background:#f7e8e7}
+  .modal{position:fixed;inset:0;background:rgba(31,27,22,.42);z-index:60;display:flex;
+    align-items:center;justify-content:center;padding:20px}
+  @media (max-width:760px){ .hide-sm{display:none !important} .col2{grid-template-columns:1fr !important} }
+  @media print{ .noprint{display:none !important} body{background:#fff} }
+</style>
+<script src="vendor/react.min.js"></script>
+<script src="vendor/react-dom.min.js"></script>
+<script src="vendor/babel.min.js"></script>
+<script src="data-anatomy.js"></script>
+<script src="data-physiology.js"></script>
+<script src="data-pathology.js"></script>
+<script src="data-conditions.js"></script>
+<script src="data-periop.js"></script>
+<script src="data-trauma.js"></script>
+<script src="data-core.js"></script>
+<script src="data-questions.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<div id="root"><div style="padding:4rem;color:#8e8271;text-align:center;font-style:italic">Setting the type…</div></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+const SPECIALTIES=window.SPECIALTIES, PHASES=window.PHASES, TIPS=window.TIPS, BLUEPRINT=window.BLUEPRINT;
+const QUESTIONS=(window.QBANK&&window.QBANK.questions)||[];
+
+const K = { status:"mrcs_statuses", changed:"mrcs_status_changed_at", notes:"mrcs_notes",
+  hours:"mrcs_hours_per_week", exam:"mrcs_exam_date", start:"mrcs_plan_start",
+  view:"mrcs_v2_view", section:"mrcs_active_section", book:"mrcs_bookmarks",
+  day:"mrcs_day_overrides", qbank:"mrcs_qbank_progress", onboard:"mrcs_onboarded",
+  sync:"mrcs_sync_code" };
+function load(k,fb){ try{const v=localStorage.getItem(k); return v===null?fb:JSON.parse(v);}catch(e){return fb;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+/* ================= cross-device sync =================
+   Optional. Off unless firebase-config.js is filled in AND the user has set a
+   sync code. The Firebase SDKs (375 KB) are loaded LAZILY — a user who never
+   turns sync on never downloads them. See DEPLOY.md, Part C.                          */
+const SYNC_COLLECTION = "mrcs";
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";  // no I/O/0/1 — typeable
+const firebaseConfigured = () => !!(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.projectId);
+
+function makeSyncCode(){
+  const a = new Uint32Array(16);
+  (window.crypto || window.msCrypto).getRandomValues(a);
+  return Array.from(a, n => CODE_ALPHABET[n % CODE_ALPHABET.length]).join("");
+}
+const normCode  = s => String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const prettyCode = s => (normCode(s).match(/.{1,4}/g)||[]).join("-");
+const codeValid = s => normCode(s).length >= 12;   // must match the Firestore rule
+
+let _fbPromise = null;
+function loadFirebase(){
+  if(_fbPromise) return _fbPromise;
+  _fbPromise = new Promise((resolve,reject)=>{
+    if(!firebaseConfigured()){ reject(new Error("not-configured")); return; }
+    const add = src => new Promise((res,rej)=>{
+      const el=document.createElement("script");
+      el.src=src; el.onload=res; el.onerror=()=>rej(new Error("failed to load "+src));
+      document.head.appendChild(el);
+    });
+    add("vendor/firebase-app-compat.js")
+      .then(()=>add("vendor/firebase-firestore-compat.js"))
+      .then(()=>{
+        if(!window.firebase.apps.length) window.firebase.initializeApp(window.FIREBASE_CONFIG);
+        resolve(window.firebase.firestore());
+      })
+      .catch(reject);
+  });
+  return _fbPromise;
+}
+
+const DAY=86400000;
+function localISO(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parseISO(s){ const p=String(s).split("-"); return new Date(+p[0],+p[1]-1,+p[2]); }
+function daysBetween(a,b){ return Math.round((parseISO(b)-parseISO(a))/DAY); }
+function daysUntil(e){ return Math.max(0, Math.round((parseISO(e)-parseISO(localISO()))/DAY)); }
+function stepOf(s,e){ const t=Math.max(22,daysBetween(s,e)); const g=Math.max(0,daysBetween(s,localISO()));
+  return Math.min(22,Math.max(1,Math.ceil(g/t*22)||1)); }
+function phaseIdxOf(st){ for(let i=0;i<PHASES.length;i++) if(st<=PHASES[i].weekEnd) return i; return 3; }
+const fmtDate = iso => parseISO(iso).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+const fmtShort = iso => parseISO(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+function daysAgo(ts){ return ts? Math.floor((Date.now()-ts)/DAY) : null; }
+function shuffle(a){ const x=a.slice(); for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [x[i],x[j]]=[x[j],x[i]];} return x; }
+
+const LEVELS = [
+  {v:null,   label:"Unread",   short:"—",   colour:"var(--l0)", desc:"Not yet opened"},
+  {v:"red",  label:"Read",     short:"I",   colour:"var(--l1)", desc:"Been through it once; could not reproduce it"},
+  {v:"amber",label:"Recalled", short:"II",  colour:"var(--l2)", desc:"Can recall the outline with prompting"},
+  {v:"green",label:"Mastered", short:"III", colour:"var(--l3)", desc:"Could teach it, and answer a question under time"},
+];
+const levelOf = s => LEVELS.findIndex(l=>l.v===(s||null));
+const WEIGHT={green:1,amber:0.6,red:0.3}, UNSET=0.15;
+function sectionScore(sec,st){ const n=sec.conditions.length||1; let sum=0,c={green:0,amber:0,red:0,unset:0};
+  sec.conditions.forEach(x=>{const s=st[x.id]; if(s){sum+=WEIGHT[s];c[s]++;}else{sum+=UNSET;c.unset++;}});
+  return {frac:sum/n,counts:c,rated:n-c.unset,total:n}; }
+function overall(st){ let marks=0,got=0,rated=0,total=0;
+  SPECIALTIES.forEach(s=>{const sc=sectionScore(s,st); rated+=sc.rated; total+=sc.total;
+    if(s.marks>0){marks+=s.marks;got+=s.marks*sc.frac;}});
+  return {marks,got,rated,total}; }
+const pct = x => Math.round(x*100);
+const TOPIC_INDEX = (()=>{ const m={}; SPECIALTIES.forEach(s=>s.conditions.forEach(c=>m[c.id]={c,s})); return m; })();
+
+/* ================= atoms ================= */
+function Rule({style}){ return <div style={{height:1,background:"var(--rule)",...style}}/>; }
+function Kicker({children,style}){
+  return <div className="sans" style={{fontSize:10.5,letterSpacing:".16em",textTransform:"uppercase",color:"var(--ink3)",...style}}>{children}</div>;
+}
+function InkBar({counts,total,h=8}){
+  const w=k=>((counts[k]||0)/(total||1))*100;
+  return (
+    <div style={{height:h,background:"#eae2d4",borderRadius:1,overflow:"hidden",display:"flex",border:"1px solid var(--rule)"}}>
+      <div style={{width:w("green")+"%",background:"var(--l3)"}}/>
+      <div style={{width:w("amber")+"%",background:"var(--l2)"}}/>
+      <div style={{width:w("red")+"%",background:"var(--l1)"}}/>
+    </div>
+  );
+}
+
+/* ================= onboarding ================= */
+function Onboarding({onDone}){
+  const [exam,setExam]=useState(window.EXAM_DATE);
+  const [hrs,setHrs]=useState(12);
+  const d=daysUntil(exam);
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
+      <div style={{maxWidth:560,width:"100%"}}>
+        <div style={{textAlign:"center",marginBottom:26}}>
+          <div style={{fontSize:38}}>📕</div>
+          <div className="smallcaps" style={{fontSize:30,letterSpacing:".05em",marginTop:10}}>MRCS Part A</div>
+          <p style={{fontSize:15.5,lineHeight:1.75,color:"var(--ink2)",margin:"14px 0 0"}}>
+            An atlas of the whole Intercollegiate syllabus — 298 topics, mapped to all 300 marks.
+            Two answers and you are set up.
+          </p>
+        </div>
+        <div className="plate" style={{padding:24}}>
+          <Kicker>When are you sitting?</Kicker>
+          <input type="date" value={exam} onChange={e=>e.target.value&&setExam(e.target.value)}
+            style={{marginTop:9,width:"100%",background:"var(--paper)",border:"1px solid var(--rule2)",
+              color:"var(--ink)",padding:"11px 12px",borderRadius:2,fontSize:16}}/>
+          <div className="sans" style={{fontSize:11.5,color:"var(--ink3)",marginTop:8}}>
+            {d} days away. The 22-step plan will stretch or compress to fill them.
+          </div>
+
+          <Rule style={{margin:"22px 0"}}/>
+
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+            <Kicker>Hours a week you can genuinely sustain</Kicker>
+            <span style={{fontSize:30,color:"var(--oxblood)",lineHeight:1}}>{hrs}</span>
+          </div>
+          <input type="range" min="3" max="40" value={hrs} style={{marginTop:14,"--pct":((hrs-3)/37*100)+"%"}}
+            onChange={e=>setHrs(+e.target.value)}/>
+          <div className="sans" style={{fontSize:11,color:"var(--ink3)",marginTop:9,lineHeight:1.6}}>
+            Be honest, including on-calls. A plan you finish at 12 hours a week beats an abandoned one at 25 —
+            you can change both of these at any time on the Plan page.
+          </div>
+
+          <button className="btn btn-primary" onClick={()=>onDone(exam,hrs)}
+            style={{width:"100%",marginTop:24,padding:"13px",fontSize:16}}>Open the atlas</button>
+        </div>
+        <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",textAlign:"center",marginTop:16,lineHeight:1.7}}>
+          Everything is stored in this browser. No account and nothing leaves this device,
+          unless you switch on sync later in Settings.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= masthead ================= */
+const SYNC_UI = {
+  off:          {dot:"transparent", label:"Sync off"},
+  unconfigured: {dot:"var(--ink3)",  label:"Sync not configured — see DEPLOY.md, Part C"},
+  connecting:   {dot:"var(--l2)",    label:"Connecting…"},
+  synced:       {dot:"var(--l3)",    label:"Synced"},
+  offline:      {dot:"var(--l2)",    label:"Offline — changes will sync later"},
+  error:        {dot:"var(--l1)",    label:"Sync error — see Settings"},
+  toobig:       {dot:"var(--l1)",    label:"Too much data to sync — see Settings"},
+};
+
+function Masthead({view,setView,examISO,onSettings,syncStatus}){
+  const tabs=[["today","Today"],["plan","The Plan"],["tracker","The Syllabus"],["practice","Practice"],["review","My Review"],["blueprint","Weighting"]];
+  return (
+    <div className="noprint" style={{borderBottom:"3px double var(--rule2)",background:"var(--paper)",position:"sticky",top:0,zIndex:20,
+      paddingTop:"env(safe-area-inset-top)"}}>
+      <div style={{maxWidth:1080,margin:"0 auto",padding:"16px 24px 0"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
+          <div>
+            <div className="smallcaps" style={{fontSize:26,letterSpacing:".05em"}}>MRCS Part A</div>
+            <div className="sans hide-sm" style={{fontSize:11,color:"var(--ink3)",letterSpacing:".04em",marginTop:2}}>
+              An atlas of the Intercollegiate syllabus · Applied Basic Sciences &amp; Principles of Surgery
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:16}}>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:30,color:"var(--oxblood)",lineHeight:1}}>{daysUntil(examISO)}</div>
+              <div className="sans" style={{fontSize:9.5,letterSpacing:".14em",color:"var(--ink3)"}}>DAYS REMAINING</div>
+            </div>
+            <button onClick={onSettings} title={"Settings, sync and backup — "+(SYNC_UI[syncStatus]||SYNC_UI.off).label}
+              style={{fontSize:19,color:"var(--ink3)",paddingBottom:2,position:"relative"}}>⚙
+              {syncStatus && syncStatus!=="off" && (
+                <span style={{position:"absolute",top:1,right:-2,width:7,height:7,borderRadius:"50%",
+                  background:(SYNC_UI[syncStatus]||SYNC_UI.off).dot,border:"1px solid var(--paper)"}}/>
+              )}
+            </button>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:24,marginTop:14,overflowX:"auto"}} className="noscroll">
+          {tabs.map(([id,l])=>(
+            <button key={id} className={"chapter smallcaps"+(view===id?" on":"")} onClick={()=>setView(id)}>{l}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= settings / backup ================= */
+function Settings({onClose, statuses, notes, marks, qprog, examISO, startISO, hours, restore,
+                   syncCode, syncStatus, lastSyncAt, connectSync, disconnectSync}){
+  const [msg,setMsg]=useState("");
+  const [codeInput,setCodeInput]=useState("");
+  const [confirmJoin,setConfirmJoin]=useState(false);
+  const [copied,setCopied]=useState(false);
+  const fileRef=useRef(null);
+  const exportAll=()=>{
+    const blob=new Blob([JSON.stringify({
+      _app:"mrcs-atlas", _version:1, _exported:new Date().toISOString(),
+      statuses, notes, bookmarks:marks, qbank:qprog,
+      changedAt:load(K.changed,{}), dayOverrides:load(K.day,{}),
+      examDate:examISO, planStart:startISO, hoursPerWeek:hours
+    },null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="mrcs-atlas-backup-"+localISO()+".json";
+    a.click(); URL.revokeObjectURL(a.href);
+    setMsg("Backup downloaded.");
+  };
+  const importAll=e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{
+      const d=JSON.parse(r.result);
+      if(d._app!=="mrcs-atlas") { setMsg("That file is not an Atlas backup."); return; }
+      restore(d); setMsg("Restored. Reloading…");
+      setTimeout(()=>location.reload(),700);
+    }catch(err){ setMsg("Could not read that file."); } };
+    r.readAsText(f);
+  };
+  const o=overall(statuses);
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="plate" onClick={e=>e.stopPropagation()}
+        style={{maxWidth:520,width:"100%",padding:26,maxHeight:"88vh",overflowY:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+          <h2 style={{fontSize:23}}>Settings &amp; backup</h2>
+          <button onClick={onClose} style={{fontSize:20,color:"var(--ink3)"}}>×</button>
+        </div>
+        <Rule style={{margin:"14px 0 18px"}}/>
+
+        <Kicker>Your data</Kicker>
+        <div className="sans" style={{fontSize:12.5,color:"var(--ink2)",marginTop:9,lineHeight:1.9}}>
+          {o.rated} of {o.total} topics rated · {Object.keys(notes).length} notes · {Object.keys(marks).length} bookmarks
+          · {Object.keys(qprog).length} questions attempted
+        </div>
+
+        <p className="sans" style={{fontSize:12.5,lineHeight:1.75,color:"var(--ink2)",margin:"16px 0 0"}}>
+          Everything lives in this browser's local storage. Clearing site data, using private browsing or switching
+          device will lose it, so take a backup periodically — the file is plain JSON and restores everything.
+        </p>
+        <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+          <button className="btn btn-primary" onClick={exportAll}>Download backup</button>
+          <button className="btn" onClick={()=>fileRef.current.click()}>Restore from file…</button>
+          <input ref={fileRef} type="file" accept="application/json" onChange={importAll} style={{display:"none"}}/>
+        </div>
+        {msg && <div className="sans" style={{fontSize:12.5,color:"var(--oxblood)",marginTop:12}}>{msg}</div>}
+
+        <Rule style={{margin:"22px 0 18px"}}/>
+        <Kicker>Sync across devices</Kicker>
+
+        {!firebaseConfigured() ? (
+          <p className="sans" style={{fontSize:12.5,lineHeight:1.75,color:"var(--ink2)",margin:"9px 0 0"}}>
+            Not set up. Sync is optional and needs a free Firebase project of your own —
+            about ten minutes, entirely in the browser. The steps are in <strong>DEPLOY.md</strong>, Part C.
+            Until then, use the backup file above to move progress between devices.
+          </p>
+        ) : !syncCode ? (
+          <div>
+            <p className="sans" style={{fontSize:12.5,lineHeight:1.75,color:"var(--ink2)",margin:"9px 0 14px"}}>
+              Keep this phone, tablet and laptop in step. One device creates a sync code; the
+              others join with it. Ratings, notes, bookmarks and question history all travel.
+            </p>
+            <button className="btn btn-primary" onClick={()=>connectSync(makeSyncCode())}>
+              Create a sync code
+            </button>
+            <div style={{marginTop:16}}>
+              <Kicker style={{marginBottom:6}}>…or join from another device</Kicker>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <input value={codeInput} onChange={e=>{setCodeInput(e.target.value);setConfirmJoin(false);}}
+                  placeholder="Paste the code"
+                  style={{flex:"1 1 190px",background:"var(--paper)",border:"1px solid var(--rule2)",
+                    borderRadius:2,color:"var(--ink)",padding:"9px 10px",fontSize:14,letterSpacing:".06em"}}/>
+                <button className="btn" disabled={!codeValid(codeInput)}
+                  style={{opacity:codeValid(codeInput)?1:.45}}
+                  onClick={()=>{ if(confirmJoin) connectSync(codeInput); else setConfirmJoin(true); }}>
+                  {confirmJoin ? "Yes — replace it" : "Join"}
+                </button>
+              </div>
+              {confirmJoin && (
+                <p className="sans" style={{fontSize:12,lineHeight:1.7,color:"var(--oxblood)",margin:"10px 0 0"}}>
+                  ⚠️ Joining replaces <strong>this device's</strong> progress with whatever is already
+                  in that sync code. If there is work here you haven't got elsewhere, download a
+                  backup first. Press again to confirm.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:9,marginTop:10}}>
+              <span style={{width:8,height:8,borderRadius:"50%",flexShrink:0,
+                background:(SYNC_UI[syncStatus]||SYNC_UI.off).dot}}/>
+              <span className="sans" style={{fontSize:12.5,color:"var(--ink2)"}}>
+                {(SYNC_UI[syncStatus]||SYNC_UI.off).label}
+                {syncStatus==="synced" && lastSyncAt && " · "+new Date(lastSyncAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+              </span>
+            </div>
+
+            <div style={{marginTop:12,padding:"12px 14px",background:"var(--paper)",border:"1px solid var(--rule)",borderRadius:2}}>
+              <Kicker style={{marginBottom:6}}>Your sync code</Kicker>
+              <div className="sans" style={{fontSize:15,letterSpacing:".1em",wordBreak:"break-all"}}>{prettyCode(syncCode)}</div>
+              <button className="sans" style={{fontSize:11.5,color:"var(--oxblood)",marginTop:8}}
+                onClick={()=>{ navigator.clipboard && navigator.clipboard.writeText(normCode(syncCode));
+                               setCopied(true); setTimeout(()=>setCopied(false),1600); }}>
+                {copied ? "✓ copied" : "Copy code"}
+              </button>
+            </div>
+
+            <p className="sans" style={{fontSize:11.5,lineHeight:1.7,color:"var(--ink3)",margin:"10px 0 0"}}>
+              Enter this code in Settings on your other devices. Treat it like a password —
+              anyone who has it can read and change your progress.
+            </p>
+
+            {syncStatus==="toobig" && (
+              <p className="sans" style={{fontSize:12,lineHeight:1.7,color:"var(--oxblood)",margin:"10px 0 0"}}>
+                Your notes have outgrown the 1 MB limit for a single synced record, so syncing has
+                paused. Nothing is lost locally — shorten some notes, or rely on backup files.
+              </p>
+            )}
+            {syncStatus==="error" && (
+              <p className="sans" style={{fontSize:12,lineHeight:1.7,color:"var(--oxblood)",margin:"10px 0 0"}}>
+                Sync could not reach Firebase. The usual cause is that the security rules in
+                DEPLOY.md (Part C, step C3) haven't been published yet. Your work is safe on this device.
+              </p>
+            )}
+
+            <button className="btn" style={{marginTop:14}} onClick={disconnectSync}>
+              Disconnect this device
+            </button>
+            <div className="sans" style={{fontSize:11,color:"var(--ink3)",marginTop:7}}>
+              Stops syncing here and keeps a copy of everything on this device.
+            </div>
+          </div>
+        )}
+
+        <Rule style={{margin:"22px 0 18px"}}/>
+        <Kicker>Other versions</Kicker>
+        <p className="sans" style={{fontSize:12.5,lineHeight:1.75,color:"var(--ink2)",margin:"9px 0 0"}}>
+          Two alternative interfaces onto the same data are kept in <code>alternatives/</code> —
+          <a href="alternatives/theatre/" style={{color:"var(--oxblood)"}}> Theatre</a> (dark, dense, desk) and
+          <a href="alternatives/ward-round/" style={{color:"var(--oxblood)"}}> Ward Round</a> (phone-first).
+          Your ratings are shared with both.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ================= TODAY ================= */
+function TodayView({statuses,hours,examISO,startISO,setView,setSection,dayOv,setDayType,qprog}){
+  const step=stepOf(startISO,examISO), pi=phaseIdxOf(step), phase=PHASES[pi];
+  const o=overall(statuses), key=localISO();
+  const auto=[0,6].includes(new Date().getDay())?"dayoff":"working";
+  const eff=dayOv[key]||auto;
+  const scale=hours/(5*phase.weekdayHrsBase+2*phase.dayOffHrsBase);
+  const DT={zero:{l:"Nothing",h:0,q:0},oncall:{l:"On call",h:phase.weekdayHrsBase*scale/3,q:phase.qsPerWeekdayBase*scale/3},
+    working:{l:"A working day",h:phase.weekdayHrsBase*scale,q:phase.qsPerWeekdayBase*scale},
+    dayoff:{l:"A day off",h:phase.dayOffHrsBase*scale,q:phase.qsPerDayOffBase*scale}};
+  const today=DT[eff];
+  const focus=phase.systems.filter(s=>{const m=String(s.weeks).match(/Wks?\s*(\d+)(?:[–-](\d+))?/);
+    if(!m) return true; const a=+m[1],b=m[2]?+m[2]:a; return step>=a&&step<=b;});
+  const weakest=SPECIALTIES.map(s=>({s,sc:sectionScore(s,statuses)})).filter(x=>x.s.marks>0)
+    .sort((a,b)=>(a.sc.frac*b.s.marks)-(b.sc.frac*a.s.marks)).slice(0,4);
+  const qDone=Object.keys(qprog).length;
+
+  return (
+    <div>
+      <div style={{textAlign:"center",padding:"6px 0 26px",borderBottom:"1px solid var(--rule)",marginBottom:26}}>
+        <Kicker>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</Kicker>
+        <h1 style={{fontSize:34,margin:"10px 0 6px"}}>{phase.name}</h1>
+        <div style={{fontSize:14.5,color:"var(--ink2)",fontStyle:"italic"}}>
+          Step {step} of 22 · sitting on {fmtDate(examISO)}
+        </div>
+      </div>
+
+      <div className="col2" style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:34,marginBottom:32}}>
+        <div>
+          <Kicker style={{marginBottom:10}}>What kind of day is today?</Kicker>
+          <div style={{display:"flex",flexWrap:"wrap",border:"1px solid var(--rule)",borderRadius:2,overflow:"hidden"}}>
+            {Object.keys(DT).map((t,i)=>(
+              <button key={t} onClick={()=>setDayType(key, t===auto&&!dayOv[key]?null:t)}
+                style={{flex:"1 1 88px",padding:"11px 6px",fontSize:13.5,
+                  borderLeft:i?"1px solid var(--rule)":"none",
+                  background: eff===t?"var(--oxblood)":"var(--paper2)", color: eff===t?"#fff":"var(--ink2)"}}>{DT[t].l}</button>
+            ))}
+          </div>
+          <div style={{display:"flex",marginTop:22,textAlign:"center"}}>
+            <div style={{flex:1,borderRight:"1px solid var(--rule)"}}>
+              <div style={{fontSize:44,lineHeight:1,color:"var(--oxblood)"}}>{today.h.toFixed(1)}</div>
+              <Kicker style={{marginTop:6}}>Hours today</Kicker>
+            </div>
+            <div style={{flex:1,borderRight:"1px solid var(--rule)"}}>
+              <div style={{fontSize:44,lineHeight:1,color:"var(--oxblood)"}}>{Math.round(today.q)}</div>
+              <Kicker style={{marginTop:6}}>Questions</Kicker>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:44,lineHeight:1}}>{hours}</div>
+              <Kicker style={{marginTop:6}}>Hours per week</Kicker>
+            </div>
+          </div>
+          <p style={{fontSize:15.5,lineHeight:1.78,color:"var(--ink2)",marginTop:24,textAlign:"justify"}}>{phase.goal}</p>
+          <button className="btn btn-primary" onClick={()=>setView("practice")} style={{marginTop:18}}>
+            Start today's questions →
+          </button>
+        </div>
+
+        <div>
+          <div className="plate" style={{padding:20}}>
+            <Kicker>Progress through the atlas</Kicker>
+            <div style={{display:"flex",alignItems:"baseline",gap:8,marginTop:12}}>
+              <span style={{fontSize:42,lineHeight:1,color:"var(--oxblood)"}}>{Math.round(o.got)}</span>
+              <span style={{fontSize:16,color:"var(--ink3)"}}>/ {o.marks} marks</span>
+            </div>
+            <div className="sans" style={{fontSize:11.5,color:"var(--ink3)",marginTop:6,lineHeight:1.6}}>
+              a projected raw score, weighted by the official blueprint
+            </div>
+            <Rule style={{margin:"16px 0"}}/>
+            <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+              <span style={{fontSize:30,lineHeight:1}}>{o.rated}</span>
+              <span style={{fontSize:14,color:"var(--ink3)"}}>of {o.total} entries opened</span>
+            </div>
+            <div style={{marginTop:10,height:8,background:"#eae2d4",border:"1px solid var(--rule)",borderRadius:1,overflow:"hidden"}}>
+              <div style={{height:"100%",width:pct(o.rated/o.total)+"%",background:"var(--teal)"}}/>
+            </div>
+            {qDone>0 && <div className="sans" style={{fontSize:11.5,color:"var(--ink3)",marginTop:12}}>
+              {qDone} of {QUESTIONS.length} questions attempted
+            </div>}
+          </div>
+          <div style={{marginTop:20}}>
+            <Kicker style={{marginBottom:10}}>Set down for this week</Kicker>
+            {focus.map((s,i)=>(
+              <div key={i} style={{paddingBottom:11,marginBottom:11,borderBottom:"1px solid var(--rule)"}}>
+                <div style={{fontSize:14.5,lineHeight:1.45}}>{s.name}</div>
+                <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:4,display:"flex",gap:10}}>
+                  <span>{s.weeks}</span><span>·</span><span>{s.priority}</span>
+                  {s.trackerId && <button onClick={()=>{setSection(s.trackerId);setView("tracker");}}
+                    style={{color:"var(--oxblood)",marginLeft:"auto"}}>open →</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <Kicker style={{marginBottom:12}}>Where the marks are leaking</Kicker>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:16}}>
+        {weakest.map(({s,sc})=>(
+          <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}} className="plate entry"
+            style={{padding:16,textAlign:"left"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+              <span style={{fontSize:16}}>{s.icon} {s.short}</span>
+              <span style={{fontSize:19,color:"var(--oxblood)"}}>{s.marks}</span>
+            </div>
+            <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",margin:"6px 0 10px"}}>
+              marks at stake · {pct(sc.frac)}% secured · {sc.rated}/{sc.total} opened
+            </div>
+            <InkBar counts={sc.counts} total={sc.total} h={7}/>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================= PLAN ================= */
+function PlanView({hours,setHours,examISO,startISO,setExam,setView,setSection}){
+  const step=stepOf(startISO,examISO), pi=phaseIdxOf(step);
+  const totalDays=Math.max(22,daysBetween(startISO,examISO)), perStep=totalDays/22;
+  const dateOf=s=>localISO(new Date(parseISO(startISO).getTime()+Math.round((s-1)*perStep)*DAY));
+  return (
+    <div>
+      <div className="plate" style={{padding:22,marginBottom:30}}>
+        <div className="col2" style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:28,alignItems:"center"}}>
+          <div>
+            <Kicker>Hours a week you can genuinely sustain</Kicker>
+            <div style={{display:"flex",alignItems:"baseline",gap:10,margin:"8px 0 16px"}}>
+              <span style={{fontSize:44,lineHeight:1,color:"var(--oxblood)"}}>{hours}</span>
+              <span style={{fontSize:15,color:"var(--ink3)",fontStyle:"italic"}}>hours per week</span>
+            </div>
+            <input type="range" min="3" max="40" value={hours} style={{"--pct":((hours-3)/37*100)+"%"}}
+              onChange={e=>setHours(+e.target.value)}/>
+            <div className="sans" style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--ink3)",marginTop:8}}>
+              <span>3</span><span>a plan you finish beats one you abandon</span><span>40</span>
+            </div>
+          </div>
+          <div>
+            <Kicker>Date of the sitting</Kicker>
+            <input type="date" value={examISO} onChange={e=>e.target.value&&setExam(e.target.value)}
+              style={{marginTop:8,width:"100%",background:"var(--paper)",border:"1px solid var(--rule2)",
+                color:"var(--ink)",padding:"9px 10px",borderRadius:2,fontSize:14}}/>
+            <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:8,lineHeight:1.6}}>
+              The 22-step plan stretches or compresses to fill the {totalDays} days from {fmtDate(startISO)}.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {PHASES.map((p,i)=>{
+        const on=i===pi, sc=hours/(5*p.weekdayHrsBase+2*p.dayOffHrsBase);
+        return (
+          <div key={p.id} style={{marginBottom:34}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:14,flexWrap:"wrap",marginBottom:4}}>
+              <span className="smallcaps" style={{fontSize:12.5,letterSpacing:".16em",color:"var(--ink3)"}}>Phase {p.id}</span>
+              <h2 style={{fontSize:25,color:on?"var(--oxblood)":"var(--ink)"}}>{p.name}</h2>
+              {on && <span className="sans" style={{fontSize:9.5,letterSpacing:".12em",padding:"3px 8px",
+                background:"var(--oxblood)",color:"#fff",borderRadius:1}}>YOU ARE HERE</span>}
+              <span style={{flex:1}}/>
+              <span className="sans" style={{fontSize:11,color:"var(--ink3)"}}>{fmtDate(dateOf(p.weekStart))} — {fmtDate(dateOf(p.weekEnd))}</span>
+            </div>
+            <Rule style={{background:on?"var(--oxblood)":"var(--rule)",height:on?2:1,marginBottom:16}}/>
+            <div className="col2" style={{display:"grid",gridTemplateColumns:"1.6fr 1fr",gap:30}}>
+              <div>
+                <p style={{fontSize:15.5,lineHeight:1.78,color:"var(--ink2)",margin:0,textAlign:"justify"}}>{p.goal}</p>
+                <ol style={{margin:"16px 0 0",paddingLeft:20,fontSize:14.5,lineHeight:1.75,color:"var(--ink2)"}}>
+                  {p.strategy.map((s,j)=><li key={j} style={{marginBottom:9}}>{s}</li>)}
+                </ol>
+              </div>
+              <div>
+                <div className="plate" style={{padding:15,marginBottom:14}}>
+                  <Kicker>The weekly rhythm at {hours} h/wk</Kicker>
+                  <div style={{display:"flex",gap:16,marginTop:10}}>
+                    <div><div style={{fontSize:24,color:"var(--oxblood)"}}>{(p.weekdayHrsBase*sc).toFixed(1)}h</div>
+                      <div className="sans" style={{fontSize:10,color:"var(--ink3)"}}>a weekday</div></div>
+                    <div><div style={{fontSize:24,color:"var(--oxblood)"}}>{(p.dayOffHrsBase*sc).toFixed(1)}h</div>
+                      <div className="sans" style={{fontSize:10,color:"var(--ink3)"}}>a day off</div></div>
+                    <div><div style={{fontSize:24}}>{Math.round(p.qsPerWeekdayBase*sc)}</div>
+                      <div className="sans" style={{fontSize:10,color:"var(--ink3)"}}>questions</div></div>
+                  </div>
+                </div>
+                <Kicker style={{marginBottom:8}}>Subjects in this phase</Kicker>
+                {p.systems.map((s,j)=>(
+                  <div key={j} style={{fontSize:13.5,lineHeight:1.5,paddingBottom:8,marginBottom:8,borderBottom:"1px dotted var(--rule)"}}>
+                    {s.trackerId
+                      ? <button onClick={()=>{setSection(s.trackerId);setView("tracker");}} style={{color:"var(--oxblood)",textAlign:"left"}}>{s.name}</button>
+                      : <span>{s.name}</span>}
+                    <span className="sans" style={{fontSize:10,color:"var(--ink3)",marginLeft:6}}>{s.weeks}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <div style={{borderTop:"3px double var(--rule2)",paddingTop:22}}>
+        <h2 style={{fontSize:21,marginBottom:16}}>Marginalia</h2>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:22}}>
+          {TIPS.map((t,i)=>(
+            <div key={i}>
+              <div style={{fontSize:15.5,marginBottom:6}}>{t.icon} {t.title}</div>
+              <p style={{fontSize:13.5,lineHeight:1.75,color:"var(--ink2)",margin:0}}>{t.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= TRACKER ================= */
+function Entry({c,sec,idx,status,note,setStatus,setNote,open,toggle,marked,toggleMark,changed}){
+  const labels=c.fieldLabels||sec.fieldLabels||["Presentation","Investigations","Management"];
+  const rows=[];
+  if(c.presentation) rows.push([labels[0],c.presentation]);
+  if(c.investigations) rows.push([labels[1],c.investigations]);
+  if(c.treatment) rows.push([labels[2],c.treatment]);
+  if(c.complications) rows.push(["Complications",c.complications]);
+  const li=levelOf(status), ago=daysAgo(changed);
+  return (
+    <div style={{borderBottom:"1px solid var(--rule)"}}>
+      <div className="entry" style={{display:"flex",gap:14,padding:"13px 4px",cursor:"pointer",alignItems:"baseline"}} onClick={toggle}>
+        <span className="sans" style={{fontSize:10.5,color:"var(--ink3)",width:26,flexShrink:0,textAlign:"right"}}>{idx}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:16,lineHeight:1.4}}>{c.name}</div>
+          {!open && c.keyFacts && <div style={{fontSize:13,color:"var(--ink3)",marginTop:3,lineHeight:1.5,
+            overflow:"hidden",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical"}}>{c.keyFacts}</div>}
+        </div>
+        {ago!==null && ago>21 && <span className="sans hide-sm" title={"Last rated "+ago+" days ago"}
+          style={{fontSize:10,color:"var(--l2)"}}>{ago}d</span>}
+        {marked && <span style={{color:"var(--oxblood)",fontSize:13}}>❧</span>}
+        {note && <span style={{color:"var(--teal)",fontSize:13}}>✎</span>}
+        <span className="sans" style={{fontSize:10,letterSpacing:".08em",color:LEVELS[li].colour,
+          border:"1px solid "+LEVELS[li].colour,padding:"2px 7px",borderRadius:1,whiteSpace:"nowrap",flexShrink:0}}>
+          {LEVELS[li].label}</span>
+      </div>
+      {open && (
+        <div style={{padding:"2px 4px 22px 40px"}}>
+          {c.keyFacts && (
+            <div style={{borderLeft:"3px solid var(--oxblood)",background:"var(--oxblood-wash)",padding:"12px 15px",marginBottom:16}}>
+              <Kicker style={{color:"var(--oxblood)",marginBottom:5}}>The one thing</Kicker>
+              <div style={{fontSize:15,lineHeight:1.7}}>{c.keyFacts}</div>
+            </div>
+          )}
+          {rows.map(([l,v],i)=>(
+            <div key={i} style={{marginBottom:15}}>
+              <Kicker style={{marginBottom:5}}>{l}</Kicker>
+              <div style={{fontSize:14.5,lineHeight:1.78,color:"var(--ink2)",whiteSpace:"pre-line",textAlign:"justify"}}>{v}</div>
+            </div>
+          ))}
+
+          <Rule style={{margin:"20px 0 14px"}}/>
+          <Kicker style={{marginBottom:9}}>How well do you know this?</Kicker>
+          <div style={{display:"flex",border:"1px solid var(--rule)",borderRadius:2,overflow:"hidden",maxWidth:520}}>
+            {LEVELS.map((L,i)=>{
+              const on=li===i;
+              return (
+                <button key={i} onClick={()=>setStatus(c.id,L.v)} title={L.desc}
+                  style={{flex:1,padding:"10px 4px",fontSize:12.5,borderLeft:i?"1px solid var(--rule)":"none",
+                    background: on?L.colour:"var(--paper2)", color: on?"#fff":"var(--ink2)"}}>
+                  <div className="sans" style={{fontSize:9,letterSpacing:".1em",opacity:.8}}>{L.short}</div>
+                  <div style={{marginTop:2}}>{L.label}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="sans" style={{fontSize:11,color:"var(--ink3)",marginTop:7,fontStyle:"italic"}}>
+            {LEVELS[li].desc}{ago!==null && " · last changed "+(ago===0?"today":ago+" days ago")}
+          </div>
+
+          <div style={{display:"flex",gap:10,alignItems:"center",marginTop:18,marginBottom:7}}>
+            <Kicker>Your marginal note</Kicker>
+            <button onClick={()=>toggleMark(c.id)} className="sans"
+              style={{fontSize:11,color:marked?"var(--oxblood)":"var(--ink3)",marginLeft:"auto"}}>
+              {marked?"❧ bookmarked":"❧ bookmark"}</button>
+          </div>
+          <textarea value={note||""} onChange={e=>setNote(c.id,e.target.value)} rows={3}
+            placeholder="A wrong answer, a mnemonic, a page reference…"
+            style={{width:"100%",maxWidth:640,background:"var(--paper2)",border:"1px solid var(--rule)",borderRadius:2,
+              color:"var(--ink)",padding:11,fontSize:14,lineHeight:1.7,resize:"vertical"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackerView({statuses,notes,setStatus,setNote,section,setSection,marks,toggleMark,changedAt,jumpTo,clearJump}){
+  const [q,setQ]=useState(""); const [filter,setFilter]=useState("all"); const [open,setOpen]=useState({});
+  const sec=SPECIALTIES.find(s=>s.id===section)||SPECIALTIES[0];
+  useEffect(()=>{
+    if(jumpTo){ setOpen(o=>({...o,[jumpTo]:true})); setQ(""); setFilter("all");
+      setTimeout(()=>{ const el=document.getElementById("t_"+jumpTo);
+        if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); clearJump(); },120); }
+  },[jumpTo]);
+  const clusters=useMemo(()=>{const out=[],idx={};
+    sec.conditions.forEach(c=>{const k=c.cluster||"Other"; if(idx[k]===undefined){idx[k]=out.length;out.push({name:k,items:[]});}
+      out[idx[k]].items.push(c);}); return out;},[sec]);
+  const ql=q.trim().toLowerCase();
+  const match=c=>{
+    if(filter==="marked" && !marks[c.id]) return false;
+    if(filter!=="all"&&filter!=="marked"){ const s=statuses[c.id]; if(filter==="unset"? !!s : s!==filter) return false; }
+    if(!ql) return true;
+    return (c.name+" "+(c.keyFacts||"")+" "+(c.presentation||"")+" "+(c.investigations||"")+" "+(c.treatment||"")+" "+(c.cluster||"")).toLowerCase().includes(ql);
+  };
+  const sc=sectionScore(sec,statuses);
+  let n=0;
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:20,overflowX:"auto",borderBottom:"1px solid var(--rule)",marginBottom:26,paddingBottom:2}} className="noscroll noprint">
+        {SPECIALTIES.map(s=>(
+          <button key={s.id} onClick={()=>setSection(s.id)} className={"chapter"+(s.id===sec.id?" on":"")}
+            style={{fontSize:14.5,paddingBottom:9}}>{s.icon} {s.short}</button>
+        ))}
+      </div>
+
+      <div className="col2" style={{display:"grid",gridTemplateColumns:"1.5fr 1fr",gap:30,marginBottom:24}}>
+        <div>
+          <Kicker>{sec.paper==="paper1"?"Paper one · applied basic sciences":sec.paper==="paper2"?"Paper two · principles of surgery in general":"Both papers"}</Kicker>
+          <h1 style={{fontSize:32,margin:"8px 0 12px"}}>{sec.name}</h1>
+          <p style={{fontSize:15,lineHeight:1.78,color:"var(--ink2)",margin:0,textAlign:"justify"}}>{sec.blurb}</p>
+        </div>
+        <div className="plate" style={{padding:18,alignSelf:"start"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+            <Kicker>Marks at stake</Kicker>
+            <span style={{fontSize:28,color:"var(--oxblood)",lineHeight:1}}>{sec.marks>0?sec.marks:"—"}</span>
+          </div>
+          <Rule style={{margin:"13px 0"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:9}}>
+            <Kicker>Secured</Kicker><span style={{fontSize:22}}>{pct(sc.frac)}%</span>
+          </div>
+          <InkBar counts={sc.counts} total={sc.total} h={9}/>
+          <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:9,lineHeight:1.7}}>
+            {sc.counts.green} mastered · {sc.counts.amber} recalled · {sc.counts.red} read · {sc.counts.unset} unread
+          </div>
+        </div>
+      </div>
+
+      <div className="noprint" style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",marginBottom:18,
+        paddingBottom:14,borderBottom:"1px solid var(--rule)"}}>
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder={"Search these "+sec.conditions.length+" entries…"}
+          style={{flex:"1 1 220px",background:"transparent",border:"none",borderBottom:"1px solid var(--rule2)",
+            color:"var(--ink)",padding:"7px 2px",fontSize:15,outline:"none"}}/>
+        <div className="sans" style={{display:"flex",gap:14,fontSize:11.5,letterSpacing:".05em",flexWrap:"wrap"}}>
+          {[["all","All"],["unset","Unread"],["red","Read"],["amber","Recalled"],["green","Mastered"],["marked","❧ Marked"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setFilter(v)}
+              style={{color:filter===v?"var(--oxblood)":"var(--ink3)",
+                borderBottom:filter===v?"1px solid var(--oxblood)":"1px solid transparent",paddingBottom:2}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {clusters.map(cl=>{
+        const items=cl.items.filter(match); if(!items.length) return null;
+        return (
+          <div key={cl.name} style={{marginBottom:30}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:2}}>
+              <h3 className="smallcaps" style={{fontSize:17,letterSpacing:".06em"}}>{cl.name}</h3>
+              <span style={{flex:1,borderBottom:"1px dotted var(--rule2)"}}/>
+              <span className="sans" style={{fontSize:10.5,color:"var(--ink3)"}}>{items.length} {items.length===1?"entry":"entries"}</span>
+            </div>
+            {items.map(c=>{ n++; return (
+              <div key={c.id} id={"t_"+c.id}>
+                <Entry c={c} sec={sec} idx={n} status={statuses[c.id]} note={notes[c.id]} changed={changedAt[c.id]}
+                  setStatus={setStatus} setNote={setNote} open={!!open[c.id]}
+                  toggle={()=>setOpen({...open,[c.id]:!open[c.id]})}
+                  marked={!!marks[c.id]} toggleMark={toggleMark}/>
+              </div>
+            );})}
+          </div>
+        );
+      })}
+      {n===0 && <div style={{textAlign:"center",padding:40,color:"var(--ink3)",fontStyle:"italic"}}>No entries match that filter.</div>}
+    </div>
+  );
+}
+
+/* ================= PRACTICE ================= */
+function PracticeView({qprog,recordAnswer,setView,setSection,openTopic}){
+  const [stage,setStage]=useState("setup");
+  const [mode,setMode]=useState("practice");
+  const [paper,setPaper]=useState("both");
+  const [pool,setPool]=useState("all");
+  const [count,setCount]=useState(10);
+  const [items,setItems]=useState([]);
+  const [i,setI]=useState(0);
+  const [picked,setPicked]=useState(null);
+  const [answers,setAnswers]=useState({});
+  const [reveal,setReveal]=useState(false);
+
+  const available=useMemo(()=>QUESTIONS.filter(q=>{
+    if(paper!=="both" && q.paper!==paper) return false;
+    if(pool==="unseen" && qprog[q.id]) return false;
+    if(pool==="wrong"){ const p=qprog[q.id]; if(!p||p.lastCorrect!==false) return false; }
+    return true;
+  }),[paper,pool,qprog]);
+
+  const start=()=>{
+    const chosen=shuffle(available).slice(0,Math.min(count,available.length));
+    if(!chosen.length) return;
+    setItems(chosen); setI(0); setPicked(null); setAnswers({}); setReveal(false); setStage("session");
+  };
+  const submit=()=>{
+    if(picked===null) return;
+    const q=items[i], right=picked===q.answer;
+    setAnswers(a=>({...a,[q.id]:picked}));
+    recordAnswer(q.id,right);
+    if(mode==="practice") setReveal(true); else next({[q.id]:picked});
+  };
+  const next=(extra)=>{
+    setReveal(false); setPicked(null);
+    if(i+1<items.length) setI(i+1);
+    else { if(extra) setAnswers(a=>({...a,...extra})); setStage("results"); }
+  };
+
+  if(stage==="setup"){
+    const byPaper=p=>QUESTIONS.filter(q=>q.paper===p).length;
+    return (
+      <div>
+        <div style={{maxWidth:620,margin:"0 auto 30px",textAlign:"center"}}>
+          <Kicker>Single best answer</Kicker>
+          <h1 style={{fontSize:32,margin:"10px 0 14px"}}>Practice</h1>
+          <p style={{fontSize:15.5,lineHeight:1.8,color:"var(--ink2)",margin:0}}>
+            Part A is 300 single best answers in five hours — a minute a question with nothing spare. Use these to find
+            gaps early and to rehearse pace later. Every wrong answer is collected on the <em>My Review</em> page.
+          </p>
+        </div>
+
+        <div className="plate" style={{padding:24,maxWidth:620,margin:"0 auto"}}>
+          <Kicker style={{marginBottom:9}}>Mode</Kicker>
+          <div style={{display:"flex",border:"1px solid var(--rule)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+            {[["practice","Practice","explanation after each"],["mock","Mock","scores at the end only"]].map(([v,l,d],k)=>(
+              <button key={v} onClick={()=>setMode(v)} style={{flex:1,padding:"12px 8px",borderLeft:k?"1px solid var(--rule)":"none",
+                background:mode===v?"var(--oxblood)":"var(--paper2)",color:mode===v?"#fff":"var(--ink2)"}}>
+                <div style={{fontSize:15}}>{l}</div>
+                <div className="sans" style={{fontSize:10,opacity:.8,marginTop:3}}>{d}</div>
+              </button>
+            ))}
+          </div>
+
+          <Kicker style={{marginBottom:9}}>Paper</Kicker>
+          <div style={{display:"flex",border:"1px solid var(--rule)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+            {[["both","Both","300"],["paper1","Paper 1",byPaper("paper1")],["paper2","Paper 2",byPaper("paper2")]].map(([v,l,n],k)=>(
+              <button key={v} onClick={()=>setPaper(v)} style={{flex:1,padding:"11px 8px",borderLeft:k?"1px solid var(--rule)":"none",
+                background:paper===v?"var(--oxblood)":"var(--paper2)",color:paper===v?"#fff":"var(--ink2)"}}>
+                <div style={{fontSize:14.5}}>{l}</div>
+                <div className="sans" style={{fontSize:10,opacity:.8,marginTop:2}}>{v==="both"?QUESTIONS.length:n} available</div>
+              </button>
+            ))}
+          </div>
+
+          <Kicker style={{marginBottom:9}}>Which questions</Kicker>
+          <div style={{display:"flex",border:"1px solid var(--rule)",borderRadius:2,overflow:"hidden",marginBottom:20}}>
+            {[["all","All"],["unseen","Not yet seen"],["wrong","Previously wrong"]].map(([v,l],k)=>(
+              <button key={v} onClick={()=>setPool(v)} style={{flex:1,padding:"11px 8px",fontSize:13.5,borderLeft:k?"1px solid var(--rule)":"none",
+                background:pool===v?"var(--oxblood)":"var(--paper2)",color:pool===v?"#fff":"var(--ink2)"}}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+            <Kicker>How many</Kicker>
+            <span style={{fontSize:26,color:"var(--oxblood)"}}>{Math.min(count,available.length)}</span>
+          </div>
+          <input type="range" min="5" max="50" step="5" value={count} style={{marginTop:12,"--pct":((count-5)/45*100)+"%"}}
+            onChange={e=>setCount(+e.target.value)}/>
+          <div className="sans" style={{fontSize:11,color:"var(--ink3)",marginTop:9}}>
+            {available.length} question{available.length===1?"":"s"} match this selection.
+          </div>
+
+          <button className="btn btn-primary" onClick={start} disabled={!available.length}
+            style={{width:"100%",marginTop:22,padding:"13px",fontSize:16,opacity:available.length?1:.45}}>
+            {available.length? "Begin" : "No questions match — widen the selection"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if(stage==="session"){
+    const q=items[i];
+    const sec=SPECIALTIES.find(s=>s.id===q.section);
+    return (
+      <div style={{maxWidth:760,margin:"0 auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+          <Kicker>{sec?sec.name:q.section} · {q.topic}</Kicker>
+          <span className="sans" style={{fontSize:11.5,color:"var(--ink3)"}}>{i+1} of {items.length}</span>
+        </div>
+        <div style={{height:3,background:"#eae2d4",marginBottom:24,overflow:"hidden"}}>
+          <div style={{height:"100%",width:((i)/items.length*100)+"%",background:"var(--oxblood)",transition:".3s"}}/>
+        </div>
+
+        <p style={{fontSize:17,lineHeight:1.75,margin:"0 0 22px"}}>{q.stem}</p>
+
+        {q.options.map((o,k)=>{
+          let cls="opt";
+          if(reveal){ if(k===q.answer) cls+=" right"; else if(k===picked) cls+=" wrong"; }
+          else if(picked===k) cls+=" sel";
+          return (
+            <button key={k} className={cls} onClick={()=>!reveal&&setPicked(k)} disabled={reveal}>
+              <span className="sans" style={{fontSize:12,letterSpacing:".08em",color:"var(--ink3)",flexShrink:0,paddingTop:2}}>
+                {String.fromCharCode(65+k)}</span>
+              <span>{o}</span>
+            </button>
+          );
+        })}
+
+        {reveal && (
+          <div style={{borderLeft:"3px solid "+(picked===q.answer?"var(--l3)":"var(--l1)"),
+            background:picked===q.answer?"#eef4ef":"var(--oxblood-wash)",padding:"15px 17px",marginTop:18}}>
+            <Kicker style={{color:picked===q.answer?"var(--l3)":"var(--oxblood)",marginBottom:6}}>
+              {picked===q.answer?"Correct":"The answer is "+String.fromCharCode(65+q.answer)}
+            </Kicker>
+            <div style={{fontSize:14.5,lineHeight:1.78,textAlign:"justify"}}>{q.explanation}</div>
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:12,marginTop:22,alignItems:"center"}}>
+          {!reveal
+            ? <button className="btn btn-primary" onClick={submit} disabled={picked===null}
+                style={{opacity:picked===null?.45:1}}>{mode==="practice"?"Check answer":"Next"}</button>
+            : <button className="btn btn-primary" onClick={()=>next()}>{i+1<items.length?"Next question":"See results"}</button>}
+          <button className="btn" onClick={()=>setStage("setup")}>Abandon</button>
+        </div>
+      </div>
+    );
+  }
+
+  // results
+  const correct=items.filter(q=>answers[q.id]===q.answer).length;
+  const bySection={};
+  items.forEach(q=>{ const k=q.section; bySection[k]=bySection[k]||{n:0,c:0};
+    bySection[k].n++; if(answers[q.id]===q.answer) bySection[k].c++; });
+  const frac=correct/items.length;
+  return (
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <Kicker>{mode==="mock"?"Mock":"Practice"} · {items.length} questions</Kicker>
+        <div style={{fontSize:60,lineHeight:1.1,margin:"10px 0 2px",
+          color:frac>=0.7?"var(--l3)":frac>=0.5?"var(--l2)":"var(--l1)"}}>{pct(frac)}%</div>
+        <div style={{fontSize:16,color:"var(--ink2)",fontStyle:"italic"}}>{correct} of {items.length} correct</div>
+      </div>
+
+      <Kicker style={{marginBottom:10}}>By section</Kicker>
+      {Object.keys(bySection).map(k=>{
+        const s=SPECIALTIES.find(x=>x.id===k), d=bySection[k];
+        return (
+          <div key={k} style={{display:"flex",alignItems:"center",gap:14,padding:"9px 2px",borderBottom:"1px solid var(--rule)"}}>
+            <span style={{fontSize:17,width:24}}>{s?s.icon:"•"}</span>
+            <span style={{flex:1,fontSize:14.5}}>{s?s.short:k}</span>
+            <div style={{width:110,height:7,background:"#eae2d4",border:"1px solid var(--rule)",overflow:"hidden"}}>
+              <div style={{height:"100%",width:(d.c/d.n*100)+"%",background:d.c/d.n>=0.7?"var(--l3)":d.c/d.n>=0.5?"var(--l2)":"var(--l1)"}}/>
+            </div>
+            <span className="sans" style={{fontSize:12,color:"var(--ink3)",width:46,textAlign:"right"}}>{d.c}/{d.n}</span>
+          </div>
+        );
+      })}
+
+      <Kicker style={{margin:"28px 0 10px"}}>Review every question</Kicker>
+      {items.map((q,k)=>{
+        const mine=answers[q.id], right=mine===q.answer;
+        return (
+          <div key={q.id} style={{paddingBottom:16,marginBottom:16,borderBottom:"1px solid var(--rule)"}}>
+            <div style={{display:"flex",gap:11,alignItems:"baseline"}}>
+              <span style={{color:right?"var(--l3)":"var(--l1)",fontSize:15}}>{right?"✓":"✗"}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15,lineHeight:1.65}}>{q.stem}</div>
+                <div className="sans" style={{fontSize:12,color:"var(--ink3)",marginTop:7,lineHeight:1.8}}>
+                  Your answer: {mine===undefined?"—":String.fromCharCode(65+mine)+" · "+q.options[mine]}<br/>
+                  Correct: {String.fromCharCode(65+q.answer)} · {q.options[q.answer]}
+                </div>
+                <div style={{fontSize:13.5,lineHeight:1.75,color:"var(--ink2)",marginTop:9,textAlign:"justify"}}>{q.explanation}</div>
+                <button className="sans" onClick={()=>{ setSection(q.section); openTopic(null); setView("tracker"); }}
+                  style={{fontSize:11.5,color:"var(--oxblood)",marginTop:8}}>Read up {q.topic} in the syllabus →</button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <div style={{display:"flex",gap:12,marginTop:8}}>
+        <button className="btn btn-primary" onClick={()=>setStage("setup")}>Another set</button>
+        <button className="btn" onClick={()=>setView("review")}>See everything I got wrong</button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= MY REVIEW ================= */
+function ReviewView({statuses,changedAt,notes,marks,qprog,setSection,setView,openTopic}){
+  const wrong=useMemo(()=>QUESTIONS.filter(q=>{const p=qprog[q.id]; return p&&p.lastCorrect===false;}),[qprog]);
+  const noteList=Object.keys(notes).filter(id=>TOPIC_INDEX[id]&&notes[id].trim());
+  const markList=Object.keys(marks).filter(id=>TOPIC_INDEX[id]);
+  const stale=useMemo(()=>Object.keys(statuses).filter(id=>{
+      if(!TOPIC_INDEX[id]) return false;
+      const a=daysAgo(changedAt[id]); return a!==null && a>=21;
+    }).sort((a,b)=>(changedAt[a]||0)-(changedAt[b]||0)).slice(0,25),[statuses,changedAt]);
+  const attempted=Object.keys(qprog).length;
+  const totalAttempts=Object.values(qprog).reduce((n,p)=>n+(p.attempts||0),0);
+  const totalCorrect=Object.values(qprog).reduce((n,p)=>n+(p.correct||0),0);
+
+  const goto=(id)=>{ const t=TOPIC_INDEX[id]; if(!t) return; setSection(t.s.id); openTopic(id); setView("tracker"); };
+  const Section=({title,note,children,empty})=>(
+    <div style={{marginBottom:36}}>
+      <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:3}}>
+        <h2 className="smallcaps" style={{fontSize:20,letterSpacing:".05em"}}>{title}</h2>
+        <span style={{flex:1,borderBottom:"1px dotted var(--rule2)"}}/>
+      </div>
+      {note && <p className="sans" style={{fontSize:12,lineHeight:1.7,color:"var(--ink3)",margin:"0 0 14px"}}>{note}</p>}
+      {children || <div style={{fontStyle:"italic",color:"var(--ink3)",fontSize:14,padding:"8px 0"}}>{empty}</div>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{maxWidth:640,margin:"0 auto 34px",textAlign:"center"}}>
+        <Kicker>Everything you have marked, written or got wrong</Kicker>
+        <h1 style={{fontSize:32,margin:"10px 0 14px"}}>My review</h1>
+        <p style={{fontSize:15.5,lineHeight:1.8,color:"var(--ink2)",margin:0}}>
+          Most candidates who improve between attempts do so by closing repeat errors rather than by covering new
+          ground. This page is that running document — read it weekly.
+        </p>
+        {attempted>0 && (
+          <div style={{display:"flex",justifyContent:"center",gap:40,marginTop:24}}>
+            <div><div style={{fontSize:32,lineHeight:1}}>{attempted}</div><Kicker style={{marginTop:6}}>Questions seen</Kicker></div>
+            <div><div style={{fontSize:32,lineHeight:1,color:"var(--oxblood)"}}>{totalAttempts?pct(totalCorrect/totalAttempts):0}%</div>
+              <Kicker style={{marginTop:6}}>Lifetime accuracy</Kicker></div>
+            <div><div style={{fontSize:32,lineHeight:1,color:wrong.length?"var(--l1)":"var(--l3)"}}>{wrong.length}</div>
+              <Kicker style={{marginTop:6}}>Still wrong</Kicker></div>
+          </div>
+        )}
+      </div>
+
+      <Section title="Questions you last got wrong"
+        note="Re-attempt these until they are right. Practice → Which questions → Previously wrong."
+        empty={attempted? "Nothing outstanding — every question you have attempted, you last answered correctly." : "You have not attempted any questions yet."}>
+        {wrong.length ? (
+          <div>
+            {wrong.map(q=>{
+              const s=SPECIALTIES.find(x=>x.id===q.section);
+              return (
+                <div key={q.id} style={{paddingBottom:13,marginBottom:13,borderBottom:"1px solid var(--rule)"}}>
+                  <div style={{fontSize:15,lineHeight:1.6}}>{q.stem}</div>
+                  <div className="sans" style={{fontSize:11.5,color:"var(--ink3)",marginTop:6}}>
+                    {s?s.icon+" "+s.short:q.section} · {q.topic}
+                  </div>
+                  <div style={{fontSize:13.5,lineHeight:1.75,color:"var(--ink2)",marginTop:8,textAlign:"justify"}}>
+                    <strong style={{color:"var(--ink)"}}>{String.fromCharCode(65+q.answer)}. {q.options[q.answer]}</strong> — {q.explanation}
+                  </div>
+                </div>
+              );
+            })}
+            <button className="btn btn-primary noprint" onClick={()=>setView("practice")} style={{marginTop:6}}>
+              Re-test these →</button>
+          </div>
+        ) : null}
+      </Section>
+
+      <Section title="Your notes" note="Everything you have written into an entry, in one place."
+        empty="No notes yet. Open any entry in the syllabus and write into the marginal note box.">
+        {noteList.length ? noteList.map(id=>{
+          const {c,s}=TOPIC_INDEX[id];
+          return (
+            <div key={id} style={{paddingBottom:13,marginBottom:13,borderBottom:"1px solid var(--rule)"}}>
+              <button onClick={()=>goto(id)} style={{textAlign:"left",width:"100%"}}>
+                <div style={{fontSize:15.5,color:"var(--oxblood)"}}>{c.name}</div>
+                <div className="sans" style={{fontSize:11,color:"var(--ink3)",marginTop:3}}>{s.icon} {s.short} · {c.cluster}</div>
+              </button>
+              <div style={{fontSize:14,lineHeight:1.75,color:"var(--ink2)",marginTop:8,whiteSpace:"pre-line",
+                borderLeft:"2px solid var(--teal)",paddingLeft:12}}>{notes[id]}</div>
+            </div>
+          );
+        }) : null}
+      </Section>
+
+      <Section title="Bookmarked entries" note="Marked with ❧ for a second look."
+        empty="Nothing bookmarked yet.">
+        {markList.length ? (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:12}}>
+            {markList.map(id=>{
+              const {c,s}=TOPIC_INDEX[id], li=levelOf(statuses[id]);
+              return (
+                <button key={id} onClick={()=>goto(id)} className="plate entry" style={{padding:13,textAlign:"left"}}>
+                  <div style={{fontSize:14.5,lineHeight:1.4}}>{c.name}</div>
+                  <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:5,display:"flex",gap:8,alignItems:"center"}}>
+                    <span>{s.icon} {s.short}</span>
+                    <span style={{marginLeft:"auto",color:LEVELS[li].colour}}>{LEVELS[li].label}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </Section>
+
+      <Section title="Going cold" note="Rated more than three weeks ago and not looked at since — anatomy decays fastest."
+        empty="Nothing has gone stale yet.">
+        {stale.length ? stale.map(id=>{
+          const {c,s}=TOPIC_INDEX[id], li=levelOf(statuses[id]), a=daysAgo(changedAt[id]);
+          return (
+            <button key={id} onClick={()=>goto(id)} className="entry"
+              style={{display:"flex",gap:13,alignItems:"baseline",width:"100%",textAlign:"left",
+                padding:"10px 3px",borderBottom:"1px solid var(--rule)"}}>
+              <span style={{fontSize:16,width:22}}>{s.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:15,lineHeight:1.4}}>{c.name}</div>
+                <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:3}}>{s.short} · {c.cluster}</div>
+              </div>
+              <span className="sans" style={{fontSize:11,color:"var(--l2)"}}>{a} days</span>
+              <span className="sans" style={{fontSize:10,letterSpacing:".08em",color:LEVELS[li].colour,
+                border:"1px solid "+LEVELS[li].colour,padding:"2px 7px"}}>{LEVELS[li].label}</span>
+            </button>
+          );
+        }) : null}
+      </Section>
+    </div>
+  );
+}
+
+/* ================= BLUEPRINT ================= */
+function BlueprintView({statuses,setView,setSection}){
+  const o=overall(statuses);
+  const maxMarks=Math.max(...SPECIALTIES.map(s=>s.marks));
+  return (
+    <div>
+      <div style={{maxWidth:680,margin:"0 auto 34px",textAlign:"center"}}>
+        <Kicker>The official allocation</Kicker>
+        <h1 style={{fontSize:32,margin:"10px 0 14px"}}>Three hundred marks, unevenly spread</h1>
+        <p style={{fontSize:15.5,lineHeight:1.8,color:"var(--ink2)",margin:0,textAlign:"justify"}}>
+          Part A runs for five hours: a three-hour paper of 180 Applied Basic Sciences questions, then, after a break,
+          a two-hour paper of 120 Principles of Surgery in General questions. A minimum standard must be reached in each
+          paper separately as well as on the combined total. Anatomy alone carries seventy-five marks — a quarter of the
+          entire examination — while imaging and statistics together carry eight. Revise accordingly.
+        </p>
+        <div style={{display:"flex",justifyContent:"center",gap:44,marginTop:26}}>
+          <div><div style={{fontSize:40,color:"var(--oxblood)",lineHeight:1}}>{Math.round(o.got)}</div>
+            <Kicker style={{marginTop:6}}>Projected raw / {o.marks}</Kicker></div>
+          <div><div style={{fontSize:40,lineHeight:1}}>{pct(o.rated/o.total)}%</div>
+            <Kicker style={{marginTop:6}}>Of the atlas opened</Kicker></div>
+        </div>
+      </div>
+
+      {BLUEPRINT.papers.map(p=>{
+        const secs=SPECIALTIES.filter(s=>s.paper===p.id&&s.marks>0);
+        let got=0,marks=0; secs.forEach(s=>{const sc=sectionScore(s,statuses); got+=s.marks*sc.frac; marks+=s.marks;});
+        return (
+          <div key={p.id} style={{marginBottom:36}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:14,flexWrap:"wrap"}}>
+              <span className="smallcaps" style={{fontSize:12.5,letterSpacing:".16em",color:"var(--ink3)"}}>{p.short}</span>
+              <h2 style={{fontSize:24}}>{p.name}</h2>
+              <span className="sans" style={{fontSize:11,color:"var(--ink3)"}}>{p.questions} questions in {p.minutes} minutes</span>
+              <span style={{flex:1}}/>
+              <span style={{fontSize:20,color:"var(--oxblood)"}}>{Math.round(got)} / {marks}</span>
+            </div>
+            <Rule style={{height:2,background:"var(--rule2)",margin:"8px 0 10px"}}/>
+            <p style={{fontSize:14,lineHeight:1.7,color:"var(--ink2)",margin:"0 0 18px",fontStyle:"italic"}}>{p.blurb}</p>
+            {secs.map(s=>{
+              const sc=sectionScore(s,statuses);
+              return (
+                <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}} className="entry"
+                  style={{display:"flex",alignItems:"center",gap:16,width:"100%",textAlign:"left",
+                    padding:"12px 4px",borderBottom:"1px solid var(--rule)"}}>
+                  <span style={{fontSize:20,width:26}}>{s.icon}</span>
+                  <span style={{flex:"0 0 148px",fontSize:15.5}}>{s.short}</span>
+                  <div style={{flex:1,minWidth:60}}>
+                    <div style={{width:(26+74*s.marks/maxMarks)+"%",height:18,background:"#eae2d4",
+                      border:"1px solid var(--rule)",display:"flex",overflow:"hidden"}}>
+                      <div style={{width:(sc.counts.green/sc.total*100)+"%",background:"var(--l3)"}}/>
+                      <div style={{width:(sc.counts.amber/sc.total*100)+"%",background:"var(--l2)"}}/>
+                      <div style={{width:(sc.counts.red/sc.total*100)+"%",background:"var(--l1)"}}/>
+                    </div>
+                  </div>
+                  <span style={{fontSize:19,color:"var(--oxblood)",width:38,textAlign:"right"}}>{s.marks}</span>
+                  <span className="sans" style={{fontSize:12,color:"var(--ink3)",width:46,textAlign:"right"}}>{pct(sc.frac)}%</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      <div style={{borderTop:"3px double var(--rule2)",paddingTop:20}}>
+        <Kicker style={{marginBottom:12}}>Carried in the syllabus but not separately weighted</Kicker>
+        {SPECIALTIES.filter(s=>s.marks===0).map(s=>{
+          const sc=sectionScore(s,statuses);
+          return (
+            <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}}
+              style={{display:"flex",gap:16,alignItems:"center",width:"100%",textAlign:"left",padding:"10px 4px"}}>
+              <span style={{fontSize:20}}>{s.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15.5}}>{s.name}</div>
+                <div className="sans" style={{fontSize:10.5,color:"var(--ink3)",marginTop:3}}>{sc.rated}/{sc.total} opened · underpins Paper 2 and the Part B OSCE</div>
+              </div>
+              <div style={{width:110}}><InkBar counts={sc.counts} total={sc.total} h={7}/></div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ================= APP ================= */
+function App(){
+  const [onboarded,setOnboarded]=useState(()=>{
+    if(load(K.onboard,null)) return true;
+    if(Object.keys(load(K.status,{})).length) { save(K.onboard,"1"); return true; }
+    return false;
+  });
+  const [view,setView]=useState(()=>load(K.view,"today"));
+  const [statuses,setStatuses]=useState(()=>load(K.status,{}));
+  const [changedAt,setChangedAt]=useState(()=>load(K.changed,{}));
+  const [notes,setNotes]=useState(()=>load(K.notes,{}));
+  const [marks,setMarks]=useState(()=>load(K.book,{}));
+  const [qprog,setQprog]=useState(()=>load(K.qbank,{}));
+  const [hours,setHours]=useState(()=>load(K.hours,12));
+  const [examISO,setExam]=useState(()=>load(K.exam,window.EXAM_DATE));
+  const [startISO,setStart]=useState(()=>load(K.start,window.PLAN_START));
+  const [section,setSection]=useState(()=>load(K.section,SPECIALTIES[0].id));
+  const [dayOv,setDayOv]=useState(()=>load(K.day,{}));
+  const [settings,setSettings]=useState(false);
+  const [jumpTo,setJumpTo]=useState(null);
+  const [syncCode,setSyncCode]=useState(()=>load(K.sync,""));
+  const [syncStatus,setSyncStatus]=useState("off");
+  const [lastSyncAt,setLastSyncAt]=useState(null);
+
+  // Guards. `applyingRemote` stops a remote update echoing straight back out.
+  // `seeded` stops the writer firing before the first read has completed —
+  // without it a fresh device would overwrite good remote data with nothing.
+  const applyingRemote=useRef(false);
+  const seeded=useRef(false);
+  const writeTimer=useRef(null);
+
+  useEffect(()=>save(K.view,view),[view]);
+  useEffect(()=>save(K.status,statuses),[statuses]);
+  useEffect(()=>save(K.changed,changedAt),[changedAt]);
+  useEffect(()=>save(K.notes,notes),[notes]);
+  useEffect(()=>save(K.book,marks),[marks]);
+  useEffect(()=>save(K.qbank,qprog),[qprog]);
+  useEffect(()=>save(K.hours,hours),[hours]);
+  useEffect(()=>save(K.exam,examISO),[examISO]);
+  useEffect(()=>save(K.start,startISO),[startISO]);
+  useEffect(()=>save(K.section,section),[section]);
+  useEffect(()=>save(K.day,dayOv),[dayOv]);
+  useEffect(()=>{ if(!load(K.start,null)){ setStart(localISO()); save(K.start,localISO()); } },[]);
+
+  const setStatus=(id,val)=>{ setStatuses(p=>{const n={...p}; if(val)n[id]=val; else delete n[id]; return n;});
+    setChangedAt(p=>({...p,[id]:Date.now()})); };
+  const setNote=(id,val)=>setNotes(p=>{const n={...p}; if(val)n[id]=val; else delete n[id]; return n;});
+  const toggleMark=id=>setMarks(p=>{const n={...p}; if(n[id])delete n[id]; else n[id]=true; return n;});
+  const setDayType=(k,t)=>setDayOv(p=>{const n={...p}; if(t)n[k]=t; else delete n[k]; return n;});
+  const recordAnswer=(qid,right)=>setQprog(p=>{
+    const e=p[qid]||{attempts:0,correct:0};
+    return {...p,[qid]:{attempts:e.attempts+1, correct:e.correct+(right?1:0), lastSeen:Date.now(), lastCorrect:right}};
+  });
+  /* ---- sync: payload, apply, connect, write ---- */
+  const localPayload=()=>({
+    statuses, changedAt, notes, bookmarks:marks, qbank:qprog,
+    hours, examDate:examISO, planStart:startISO, dayOverrides:dayOv,
+  });
+  // Only overwrite where the remote actually differs, so we don't churn renders.
+  const applyRemote=d=>{
+    const obj=(v)=>v && typeof v==="object";
+    if(obj(d.statuses))     setStatuses(p=>JSON.stringify(p)!==JSON.stringify(d.statuses)?d.statuses:p);
+    if(obj(d.changedAt))    setChangedAt(p=>JSON.stringify(p)!==JSON.stringify(d.changedAt)?d.changedAt:p);
+    if(obj(d.notes))        setNotes(p=>JSON.stringify(p)!==JSON.stringify(d.notes)?d.notes:p);
+    if(obj(d.bookmarks))    setMarks(p=>JSON.stringify(p)!==JSON.stringify(d.bookmarks)?d.bookmarks:p);
+    if(obj(d.qbank))        setQprog(p=>JSON.stringify(p)!==JSON.stringify(d.qbank)?d.qbank:p);
+    if(obj(d.dayOverrides)) setDayOv(p=>JSON.stringify(p)!==JSON.stringify(d.dayOverrides)?d.dayOverrides:p);
+    if(typeof d.hours==="number")     setHours(p=>p!==d.hours?d.hours:p);
+    if(typeof d.examDate==="string")  setExam(p=>p!==d.examDate?d.examDate:p);
+    if(typeof d.planStart==="string") setStart(p=>p!==d.planStart?d.planStart:p);
+  };
+
+  useEffect(()=>{
+    seeded.current=false;
+    if(!syncCode){ setSyncStatus("off"); return; }
+    if(!firebaseConfigured()){ setSyncStatus("unconfigured"); return; }
+    let cancelled=false, unsub=null;
+    setSyncStatus("connecting");
+    const onOnline =()=>setSyncStatus(s=>s==="offline"?"synced":s);
+    const onOffline=()=>setSyncStatus("offline");
+    window.addEventListener("online",onOnline);
+    window.addEventListener("offline",onOffline);
+
+    loadFirebase().then(db=>{
+      if(cancelled) return;
+      const ref=db.collection(SYNC_COLLECTION).doc(syncCode);
+      // Prefer the server so a second device adopts real data, not a stale cache.
+      return ref.get({source:"server"}).catch(()=>ref.get()).then(snap=>{
+        if(cancelled) return;
+        applyingRemote.current=true;
+        if(snap.exists){
+          applyRemote(snap.data()||{});
+        }else{
+          ref.set({...localPayload(), updatedAt:window.firebase.firestore.FieldValue.serverTimestamp()})
+             .catch(e=>console.warn("sync seed failed:",e));
+        }
+        seeded.current=true;
+        setSyncStatus(navigator.onLine===false?"offline":"synced");
+        setLastSyncAt(Date.now());
+        setTimeout(()=>{applyingRemote.current=false;},0);
+
+        unsub=ref.onSnapshot(s=>{
+          if(!s.exists || s.metadata.hasPendingWrites) return;   // ignore our own echo
+          applyingRemote.current=true;
+          applyRemote(s.data()||{});
+          setLastSyncAt(Date.now()); setSyncStatus("synced");
+          setTimeout(()=>{applyingRemote.current=false;},0);
+        }, e=>{ console.warn("sync listen failed:",e); setSyncStatus("error"); });
+      });
+    }).catch(e=>{
+      console.warn("sync init failed:",e);
+      setSyncStatus(e && e.message==="not-configured" ? "unconfigured" : "error");
+    });
+
+    return ()=>{
+      cancelled=true;
+      window.removeEventListener("online",onOnline);
+      window.removeEventListener("offline",onOffline);
+      if(unsub) unsub();
+    };
+  },[syncCode]);
+
+  useEffect(()=>{
+    if(!syncCode || !seeded.current || applyingRemote.current) return;
+    clearTimeout(writeTimer.current);
+    writeTimer.current=setTimeout(()=>{
+      loadFirebase().then(db=>{
+        const payload=localPayload();
+        // Firestore caps a document at 1 MB. Warn rather than fail silently.
+        if(JSON.stringify(payload).length > 800000){ setSyncStatus("toobig"); return; }
+        // FULL-DOCUMENT write — deliberately NOT { merge:true }. Merge deep-merges
+        // maps, so a key REMOVED locally (clearing a rating, deleting a note) would
+        // survive on the server and the listener would echo it back, resurrecting it.
+        db.collection(SYNC_COLLECTION).doc(syncCode)
+          .set({...payload, updatedAt:window.firebase.firestore.FieldValue.serverTimestamp()})
+          .then(()=>{ setLastSyncAt(Date.now()); setSyncStatus("synced"); })
+          .catch(e=>{ console.warn("sync write failed:",e); setSyncStatus("error"); });
+      }).catch(()=>{});
+    },700);
+    return ()=>clearTimeout(writeTimer.current);
+  },[statuses,changedAt,notes,marks,qprog,hours,examISO,startISO,dayOv,syncCode]);
+
+  const connectSync=code=>{ const c=normCode(code); save(K.sync,c); setSyncCode(c); };
+  const disconnectSync=()=>{ save(K.sync,""); setSyncCode(""); setSyncStatus("off"); setLastSyncAt(null); };
+
+  const restore=d=>{
+    if(d.statuses) save(K.status,d.statuses);
+    if(d.notes) save(K.notes,d.notes);
+    if(d.bookmarks) save(K.book,d.bookmarks);
+    if(d.qbank) save(K.qbank,d.qbank);
+    if(d.changedAt) save(K.changed,d.changedAt);
+    if(d.dayOverrides) save(K.day,d.dayOverrides);
+    if(d.examDate) save(K.exam,d.examDate);
+    if(d.planStart) save(K.start,d.planStart);
+    if(d.hoursPerWeek) save(K.hours,d.hoursPerWeek);
+    save(K.onboard,"1");
+  };
+
+  if(!onboarded) return <Onboarding onDone={(e,h)=>{
+    setExam(e); save(K.exam,e); setHours(h); save(K.hours,h);
+    setStart(localISO()); save(K.start,localISO());
+    save(K.onboard,"1"); setOnboarded(true);
+  }}/>;
+
+  return (
+    <div>
+      <Masthead view={view} setView={setView} examISO={examISO} onSettings={()=>setSettings(true)}
+        syncStatus={syncStatus}/>
+      <div style={{maxWidth:1080,margin:"0 auto",padding:"30px 24px 60px"}}>
+        {view==="today" && <TodayView statuses={statuses} hours={hours} examISO={examISO} startISO={startISO}
+          setView={setView} setSection={setSection} dayOv={dayOv} setDayType={setDayType} qprog={qprog}/>}
+        {view==="plan" && <PlanView hours={hours} setHours={setHours} examISO={examISO} startISO={startISO}
+          setExam={setExam} setView={setView} setSection={setSection}/>}
+        {view==="tracker" && <TrackerView statuses={statuses} notes={notes} setStatus={setStatus} setNote={setNote}
+          section={section} setSection={setSection} marks={marks} toggleMark={toggleMark} changedAt={changedAt}
+          jumpTo={jumpTo} clearJump={()=>setJumpTo(null)}/>}
+        {view==="practice" && <PracticeView qprog={qprog} recordAnswer={recordAnswer} setView={setView}
+          setSection={setSection} openTopic={setJumpTo}/>}
+        {view==="review" && <ReviewView statuses={statuses} changedAt={changedAt} notes={notes} marks={marks}
+          qprog={qprog} setSection={setSection} setView={setView} openTopic={setJumpTo}/>}
+        {view==="blueprint" && <BlueprintView statuses={statuses} setView={setView} setSection={setSection}/>}
+        <div className="sans" style={{marginTop:50,paddingTop:18,borderTop:"3px double var(--rule2)",
+          fontSize:10.5,color:"var(--ink3)",lineHeight:1.8,textAlign:"center"}}>
+          {window.TOTAL_TOPICS} entries across {SPECIALTIES.length} sections · {QUESTIONS.length} practice questions<br/>
+          Compiled from the Intercollegiate MRCS candidate guide (July 2018) and the ISCP Core Surgical Training syllabus.
+        </div>
+      </div>
+      {settings && <Settings onClose={()=>setSettings(false)} statuses={statuses} notes={notes} marks={marks}
+        qprog={qprog} examISO={examISO} startISO={startISO} hours={hours} restore={restore}
+        syncCode={syncCode} syncStatus={syncStatus} lastSyncAt={lastSyncAt}
+        connectSync={connectSync} disconnectSync={disconnectSync}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+<script>
+  // Register the service worker (needs http/https — skipped on file://).
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function (e) {
+        console.warn("Service worker registration failed:", e);
+      });
+    });
+  }
+</script>
+</body>
+</html>

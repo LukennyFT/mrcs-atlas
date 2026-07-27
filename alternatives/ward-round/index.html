@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="MRCS Ward" />
+<meta name="theme-color" content="#07080a" />
+<title>MRCS Part A — Ward Round</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E⚡%3C/text%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#07080a; --card:#12151a; --card2:#1a1f27; --line:#232932;
+    --ink:#f0f4f8; --ink2:#94a1b2; --ink3:#5f6b7a;
+    --lime:#c8f440; --lime2:#9dc41f; --lime-wash:#1c2409;
+    --p1:#40e0d0; --p2:#ff7a8a;
+    --red:#ff5a6e; --amber:#ffbb3d; --green:#4ade80;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;min-height:100vh;background:var(--bg);overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
+  body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+       padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  button{font-family:inherit;touch-action:manipulation;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea{font-family:inherit}
+  h1,h2,h3{margin:0;letter-spacing:-0.025em;font-weight:800}
+  .num{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:-0.03em}
+  .noscroll::-webkit-scrollbar{display:none}
+  .noscroll{scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:#2a313b;border-radius:4px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:10px;border-radius:5px;background:transparent;outline:none;padding:0;--pct:0%}
+  input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:5px;
+    background:linear-gradient(to right,var(--lime) 0%,var(--lime) var(--pct),#1e242c var(--pct),#1e242c 100%)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;
+    background:var(--lime);border:4px solid var(--bg);margin-top:-9px;box-shadow:0 2px 10px rgba(200,244,64,.4)}
+  input[type=range]::-moz-range-track{height:10px;border-radius:5px;background:#1e242c}
+  input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--lime);border:4px solid var(--bg)}
+  .tabbar{position:fixed;bottom:0;left:0;right:0;background:rgba(10,12,15,.94);backdrop-filter:blur(18px);
+    border-top:1px solid var(--line);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px 9px;
+    color:var(--ink3);font-size:10px;font-weight:700;letter-spacing:.02em;transition:.15s}
+  .tab.on{color:var(--lime)}
+  .tab .dot{width:5px;height:5px;border-radius:50%;background:transparent}
+  .tab.on .dot{background:var(--lime)}
+  .press:active{transform:scale(.975)}
+  .card{background:var(--card);border-radius:18px;border:1px solid var(--line)}
+  .pill{border-radius:999px}
+  @media (min-width:900px){ .wrap{max-width:840px} }
+</style>
+<script src="../../vendor/react.min.js"></script>
+<script src="../../vendor/react-dom.min.js"></script>
+<script src="../../vendor/babel.min.js"></script>
+<script src="../../data-anatomy.js"></script>
+<script src="../../data-physiology.js"></script>
+<script src="../../data-pathology.js"></script>
+<script src="../../data-conditions.js"></script>
+<script src="../../data-periop.js"></script>
+<script src="../../data-trauma.js"></script>
+<script src="../../data-core.js"></script>
+</head>
+<body>
+<div id="root"><div style="padding:4rem;color:#5f6b7a;text-align:center;font-weight:700">Warming up…</div></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+const SPECIALTIES=window.SPECIALTIES, PHASES=window.PHASES, TIPS=window.TIPS, BLUEPRINT=window.BLUEPRINT;
+
+const K={status:"mrcs_statuses",changed:"mrcs_status_changed_at",notes:"mrcs_notes",hours:"mrcs_hours_per_week",
+  exam:"mrcs_exam_date",start:"mrcs_plan_start",view:"mrcs_v3_view",section:"mrcs_active_section",
+  day:"mrcs_day_overrides",log:"mrcs_activity_log"};
+function load(k,fb){ try{const v=localStorage.getItem(k); return v===null?fb:JSON.parse(v);}catch(e){return fb;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+const DAY=86400000;
+function localISO(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function parseISO(s){ const p=String(s).split("-"); return new Date(+p[0],+p[1]-1,+p[2]); }
+function daysBetween(a,b){ return Math.round((parseISO(b)-parseISO(a))/DAY); }
+function daysUntil(e){ return Math.max(0,Math.round((parseISO(e)-parseISO(localISO()))/DAY)); }
+function stepOf(s,e){ const t=Math.max(22,daysBetween(s,e)),g=Math.max(0,daysBetween(s,localISO()));
+  return Math.min(22,Math.max(1,Math.ceil(g/t*22)||1)); }
+function phaseIdxOf(st){ for(let i=0;i<PHASES.length;i++) if(st<=PHASES[i].weekEnd) return i; return 3; }
+const fmtDate=iso=>parseISO(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+
+const WEIGHT={green:1,amber:0.6,red:0.3}, UNSET=0.15;
+function sectionScore(sec,st){ const n=sec.conditions.length||1; let sum=0,c={green:0,amber:0,red:0,unset:0};
+  sec.conditions.forEach(x=>{const s=st[x.id]; if(s){sum+=WEIGHT[s];c[s]++;}else{sum+=UNSET;c.unset++;}});
+  return {frac:sum/n,counts:c,rated:n-c.unset,total:n}; }
+function overall(st){ let marks=0,got=0,rated=0,total=0;
+  SPECIALTIES.forEach(s=>{const sc=sectionScore(s,st); rated+=sc.rated; total+=sc.total;
+    if(s.marks>0){marks+=s.marks;got+=s.marks*sc.frac;}});
+  return {marks,got,rated,total}; }
+const pct=x=>Math.round(x*100);
+const RAG={red:"var(--red)",amber:"var(--amber)",green:"var(--green)"};
+function heatColour(frac){
+  if(frac>=0.85) return "#4ade80";
+  if(frac>=0.68) return "#8fd94f";
+  if(frac>=0.52) return "#c8f440";
+  if(frac>=0.38) return "#ffbb3d";
+  if(frac>=0.25) return "#ff8a4d";
+  return "#ff5a6e";
+}
+function streakOf(log){
+  let n=0; const d=new Date();
+  for(;;){ const k=localISO(d); if(log[k]){n++; d.setDate(d.getDate()-1);} else { if(n===0 && k===localISO()){ d.setDate(d.getDate()-1); continue; } break; } if(n>400) break; }
+  return n;
+}
+
+/* ---------- atoms ---------- */
+function Dial({frac,size=104,stroke=11,colour}){
+  const r=(size-stroke)/2, c=2*Math.PI*r;
+  return (
+    <svg width={size} height={size} style={{transform:"rotate(-90deg)"}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e242c" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={colour||heatColour(frac)} strokeWidth={stroke}
+        strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c*(1-frac)} style={{transition:"stroke-dashoffset .5s"}}/>
+    </svg>
+  );
+}
+function Seg({counts,total,h=9}){
+  const w=k=>((counts[k]||0)/(total||1))*100;
+  return (
+    <div style={{height:h,background:"#1e242c",borderRadius:h/2,overflow:"hidden",display:"flex"}}>
+      <div style={{width:w("green")+"%",background:"var(--green)"}}/>
+      <div style={{width:w("amber")+"%",background:"var(--amber)"}}/>
+      <div style={{width:w("red")+"%",background:"var(--red)"}}/>
+    </div>
+  );
+}
+function Cap({children,style}){
+  return <div style={{fontSize:10.5,fontWeight:800,letterSpacing:".12em",textTransform:"uppercase",color:"var(--ink3)",...style}}>{children}</div>;
+}
+function TabBar({view,setView}){
+  const items=[["home","▚","Blueprint"],["today","⚡","Today"],["tracker","☰","Syllabus"],["plan","◷","Plan"]];
+  return (
+    <div className="tabbar">
+      {items.map(([id,ic,l])=>(
+        <button key={id} className={"tab press"+(view===id?" on":"")} onClick={()=>setView(id)}>
+          <span style={{fontSize:19,lineHeight:1}}>{ic}</span><span>{l}</span><span className="dot"/>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- HOME = blueprint heatmap ---------- */
+function HomeView({statuses,examISO,startISO,setView,setSection,log}){
+  const o=overall(statuses);
+  const d=daysUntil(examISO);
+  const streak=streakOf(log);
+  const maxMarks=Math.max(...SPECIALTIES.map(s=>s.marks));
+  const weighted=SPECIALTIES.filter(s=>s.marks>0);
+  const papers=BLUEPRINT.papers.map(p=>{
+    const secs=weighted.filter(s=>s.paper===p.id);
+    let got=0,marks=0; secs.forEach(s=>{const sc=sectionScore(s,statuses); got+=s.marks*sc.frac; marks+=s.marks;});
+    return {p,secs,got,marks};
+  });
+
+  return (
+    <div>
+      <div className="card" style={{padding:22,marginBottom:14,background:"linear-gradient(160deg,#151a12,#12151a 62%)",
+        border:"1px solid #262f18"}}>
+        <div style={{display:"flex",alignItems:"center",gap:20}}>
+          <div style={{position:"relative",flexShrink:0}}>
+            <Dial frac={o.got/o.marks} size={112} colour="var(--lime)"/>
+            <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <div className="num" style={{fontSize:30,color:"var(--lime)",lineHeight:1}}>{Math.round(o.got)}</div>
+              <div style={{fontSize:9.5,fontWeight:700,color:"var(--ink3)",letterSpacing:".08em"}}>/ {o.marks}</div>
+            </div>
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <Cap>Projected raw score</Cap>
+            <div style={{fontSize:14.5,lineHeight:1.55,color:"var(--ink2)",marginTop:7}}>
+              Weighted by the real blueprint. Confident topics count full marks, shaky ones 60%, weak 30%, untouched 15%.
+            </div>
+            <div style={{display:"flex",gap:18,marginTop:14}}>
+              <div><div className="num" style={{fontSize:22}}>{d}</div><Cap style={{fontSize:9}}>days left</Cap></div>
+              <div><div className="num" style={{fontSize:22}}>{o.rated}</div><Cap style={{fontSize:9}}>of {o.total} rated</Cap></div>
+              <div><div className="num" style={{fontSize:22,color:streak>0?"var(--lime)":"var(--ink3)"}}>{streak}🔥</div><Cap style={{fontSize:9}}>day streak</Cap></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:16}}>
+        {papers.map(({p,got,marks})=>(
+          <div key={p.id} className="card" style={{flex:1,padding:15}}>
+            <Cap style={{color:p.color}}>{p.short}</Cap>
+            <div className="num" style={{fontSize:26,marginTop:6}}>{Math.round(got)}<span style={{fontSize:13,color:"var(--ink3)",fontWeight:600}}> / {marks}</span></div>
+            <div style={{fontSize:11.5,color:"var(--ink3)",marginTop:3,lineHeight:1.4}}>{p.questions} Q · {p.minutes} min</div>
+            <div style={{marginTop:9,height:5,borderRadius:3,background:"#1e242c",overflow:"hidden"}}>
+              <div style={{height:"100%",width:pct(got/marks)+"%",background:p.color}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Cap style={{marginBottom:9}}>Tile size = marks at stake · colour = how solid you are</Cap>
+      <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:18}}>
+        {weighted.map(s=>{
+          const sc=sectionScore(s,statuses);
+          const grow = 0.9 + 4.6*(s.marks/maxMarks);
+          return (
+            <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}} className="press"
+              style={{flex:grow+" "+grow+" "+(92+88*s.marks/maxMarks)+"px",minHeight:92,borderRadius:14,padding:"10px 12px 11px",
+                textAlign:"left",background:heatColour(sc.frac),color:"#0a0c0f",overflow:"hidden",
+                display:"flex",flexDirection:"column"}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:6}}>
+                <span style={{fontSize:19,lineHeight:1}}>{s.icon}</span>
+                <span className="num" style={{fontSize:15,opacity:.82,lineHeight:1}}>{pct(sc.frac)}%</span>
+              </div>
+              <div style={{flex:1}} />
+              <div style={{fontSize:12.5,fontWeight:800,lineHeight:1.2}}>{s.short}</div>
+              <div style={{fontSize:10,fontWeight:700,opacity:.7,marginTop:2}}>{s.marks} marks</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <Cap style={{marginBottom:9}}>Not separately weighted, still examinable</Cap>
+      {SPECIALTIES.filter(s=>s.marks===0).map(s=>{
+        const sc=sectionScore(s,statuses);
+        return (
+          <button key={s.id} onClick={()=>{setSection(s.id);setView("tracker");}} className="card press"
+            style={{display:"flex",alignItems:"center",gap:13,width:"100%",padding:14,textAlign:"left",marginBottom:9}}>
+            <span style={{fontSize:22}}>{s.icon}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14.5,fontWeight:700}}>{s.short}</div>
+              <div style={{fontSize:11,color:"var(--ink3)",marginTop:2}}>{sc.rated}/{sc.total} rated</div>
+            </div>
+            <div style={{width:74}}><Seg counts={sc.counts} total={sc.total} h={7}/></div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- TODAY ---------- */
+function TodayView({statuses,hours,examISO,startISO,setView,setSection,dayOv,setDayType,log}){
+  const step=stepOf(startISO,examISO), pi=phaseIdxOf(step), phase=PHASES[pi];
+  const key=localISO(), auto=[0,6].includes(new Date().getDay())?"dayoff":"working";
+  const eff=dayOv[key]||auto;
+  const scale=hours/(5*phase.weekdayHrsBase+2*phase.dayOffHrsBase);
+  const DT={zero:{l:"Zero",e:"🛑",h:0,q:0},oncall:{l:"On call",e:"🌙",h:phase.weekdayHrsBase*scale/3,q:phase.qsPerWeekdayBase*scale/3},
+    working:{l:"Working",e:"🏥",h:phase.weekdayHrsBase*scale,q:phase.qsPerWeekdayBase*scale},
+    dayoff:{l:"Day off",e:"☀️",h:phase.dayOffHrsBase*scale,q:phase.qsPerDayOffBase*scale}};
+  const today=DT[eff];
+  const focus=phase.systems.filter(s=>{const m=String(s.weeks).match(/Wks?\s*(\d+)(?:[–-](\d+))?/);
+    if(!m) return true; const a=+m[1],b=m[2]?+m[2]:a; return step>=a&&step<=b;});
+  // Weakest topics across the whole syllabus, weighted by section marks
+  const queue=useMemo(()=>{
+    const out=[];
+    SPECIALTIES.forEach(s=>{ if(!s.marks) return;
+      s.conditions.forEach(c=>{ const st=statuses[c.id];
+        if(st==="green") return;
+        out.push({c,s,rank:(st==="red"?0:st==="amber"?1:2) - s.marks/200}); }); });
+    return out.sort((a,b)=>a.rank-b.rank).slice(0,6);
+  },[statuses]);
+  const streak=streakOf(log);
+
+  return (
+    <div>
+      <div style={{marginBottom:16}}>
+        <Cap>{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</Cap>
+        <h1 style={{fontSize:30,marginTop:6}}>{phase.name}</h1>
+        <div style={{fontSize:13.5,color:"var(--ink3)",marginTop:4}}>
+          Step {step}/22 · {daysUntil(examISO)} days to {fmtDate(examISO)} · {streak} day streak
+        </div>
+      </div>
+
+      <Cap style={{marginBottom:9}}>What kind of day is today?</Cap>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        {Object.keys(DT).map(t=>(
+          <button key={t} className="press" onClick={()=>setDayType(key,t===auto&&!dayOv[key]?null:t)}
+            style={{flex:1,padding:"13px 4px",borderRadius:15,textAlign:"center",
+              background:eff===t?"var(--lime)":"var(--card)",color:eff===t?"#0a0c0f":"var(--ink2)",
+              border:"1px solid "+(eff===t?"var(--lime)":"var(--line)")}}>
+            <div style={{fontSize:19,lineHeight:1}}>{DT[t].e}</div>
+            <div style={{fontSize:11.5,fontWeight:800,marginTop:5}}>{DT[t].l}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="card" style={{padding:20,marginBottom:16,display:"flex",gap:22,alignItems:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <div className="num" style={{fontSize:40,color:"var(--lime)",lineHeight:1}}>{today.h.toFixed(1)}</div>
+          <Cap style={{marginTop:5}}>Hours</Cap>
+        </div>
+        <div style={{width:1,alignSelf:"stretch",background:"var(--line)"}}/>
+        <div style={{textAlign:"center"}}>
+          <div className="num" style={{fontSize:40,color:"var(--lime)",lineHeight:1}}>{Math.round(today.q)}</div>
+          <Cap style={{marginTop:5}}>Questions</Cap>
+        </div>
+        <div style={{width:1,alignSelf:"stretch",background:"var(--line)"}}/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13.5,lineHeight:1.55,color:"var(--ink2)"}}>
+            Your target for today, scaled from {hours} hours a week across the {phase.name.toLowerCase()} phase.
+          </div>
+        </div>
+      </div>
+
+      <Cap style={{marginBottom:9}}>Pick up where it hurts — 6 weakest, marks-weighted</Cap>
+      <div style={{marginBottom:20}}>
+        {queue.map(({c,s})=>{
+          const st=statuses[c.id];
+          return (
+            <button key={c.id} onClick={()=>{setSection(s.id);setView("tracker");}} className="card press"
+              style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"13px 14px",textAlign:"left",marginBottom:8}}>
+              <span style={{width:9,height:9,borderRadius:"50%",background:st?RAG[st]:"#2a313b",flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:700,lineHeight:1.3}}>{c.name}</div>
+                <div style={{fontSize:11,color:"var(--ink3)",marginTop:3}}>{s.icon} {s.short} · {c.cluster}</div>
+              </div>
+              <span style={{color:"var(--lime)",fontSize:15}}>→</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <Cap style={{marginBottom:9}}>This week's focus</Cap>
+      {focus.map((s,i)=>(
+        <div key={i} className="card" style={{padding:15,marginBottom:9,borderLeft:"4px solid "+phase.color}}>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <div style={{flex:1,fontSize:14.5,fontWeight:700,lineHeight:1.4}}>{s.name}</div>
+            <span className="pill" style={{fontSize:9.5,fontWeight:800,padding:"3px 9px",flexShrink:0,
+              background:s.priority==="HIGH"?"#3a1620":s.priority==="EXAM"?"#3a3012":"#16242e",
+              color:s.priority==="HIGH"?"#ff8a9a":s.priority==="EXAM"?"#ffcf5c":"#6ec8e0"}}>{s.priority}</span>
+          </div>
+          <div style={{fontSize:11.5,color:"var(--ink3)",marginTop:6,display:"flex",gap:10,alignItems:"center"}}>
+            <span>{s.weeks}</span>
+            {s.trackerId && <button onClick={()=>{setSection(s.trackerId);setView("tracker");}}
+              style={{marginLeft:"auto",color:"var(--lime)",fontWeight:700,fontSize:12}}>Open →</button>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- TRACKER ---------- */
+function Topic({c,sec,status,note,setStatus,setNote,open,toggle}){
+  const labels=c.fieldLabels||sec.fieldLabels||["Presentation","Investigations","Management"];
+  const rows=[];
+  if(c.presentation) rows.push([labels[0],c.presentation]);
+  if(c.investigations) rows.push([labels[1],c.investigations]);
+  if(c.treatment) rows.push([labels[2],c.treatment]);
+  if(c.complications) rows.push(["⚠️ Complications",c.complications]);
+  return (
+    <div className="card" style={{marginBottom:9,overflow:"hidden",
+      borderColor: status? RAG[status]+"44":"var(--line)"}}>
+      <button onClick={toggle} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 15px",textAlign:"left"}}>
+        <span style={{width:9,height:9,borderRadius:"50%",background:status?RAG[status]:"#2a313b",flexShrink:0}}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14.5,fontWeight:700,lineHeight:1.35}}>{c.name}</div>
+          {!open && c.keyFacts && <div style={{fontSize:12,color:"var(--ink3)",marginTop:4,lineHeight:1.5,
+            overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{c.keyFacts}</div>}
+        </div>
+        {note && <span style={{color:"var(--lime)",fontSize:13}}>✎</span>}
+        <span style={{color:"var(--ink3)",fontSize:13,transform:open?"rotate(90deg)":"none",transition:".15s"}}>›</span>
+      </button>
+      {open && (
+        <div style={{padding:"0 15px 16px"}}>
+          {c.keyFacts && (
+            <div style={{background:"var(--lime-wash)",border:"1px solid #2c3a10",borderRadius:13,padding:"13px 15px",marginBottom:14}}>
+              <Cap style={{color:"var(--lime)",marginBottom:5}}>💡 The one thing</Cap>
+              <div style={{fontSize:14,lineHeight:1.6}}>{c.keyFacts}</div>
+            </div>
+          )}
+          {rows.map(([l,v],i)=>(
+            <div key={i} style={{marginBottom:14}}>
+              <Cap style={{marginBottom:5}}>{l}</Cap>
+              <div style={{fontSize:13.5,lineHeight:1.7,color:"var(--ink2)",whiteSpace:"pre-line"}}>{v}</div>
+            </div>
+          ))}
+          <Cap style={{margin:"18px 0 8px"}}>How confident are you?</Cap>
+          <div style={{display:"flex",gap:8}}>
+            {[["red","😖","Weak"],["amber","😐","Shaky"],["green","💪","Solid"]].map(([v,e,l])=>{
+              const on=status===v;
+              return (
+                <button key={v} className="press" onClick={()=>setStatus(c.id,on?null:v)}
+                  style={{flex:1,padding:"12px 4px",borderRadius:14,textAlign:"center",
+                    background:on?RAG[v]:"var(--card2)",color:on?"#0a0c0f":"var(--ink2)",
+                    border:"1px solid "+(on?RAG[v]:"var(--line)")}}>
+                  <div style={{fontSize:18,lineHeight:1}}>{e}</div>
+                  <div style={{fontSize:11.5,fontWeight:800,marginTop:4}}>{l}</div>
+                </button>
+              );
+            })}
+          </div>
+          <Cap style={{margin:"16px 0 7px"}}>Your note</Cap>
+          <textarea value={note||""} onChange={e=>setNote(c.id,e.target.value)} rows={3}
+            placeholder="Wrong answers, mnemonics, page refs…"
+            style={{width:"100%",background:"var(--card2)",border:"1px solid var(--line)",borderRadius:13,color:"var(--ink)",
+              padding:12,fontSize:13.5,lineHeight:1.6,resize:"vertical",outline:"none"}}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackerView({statuses,notes,setStatus,setNote,section,setSection}){
+  const [q,setQ]=useState(""); const [filter,setFilter]=useState("all"); const [open,setOpen]=useState({});
+  const [cluster,setCluster]=useState("all");
+  const sec=SPECIALTIES.find(s=>s.id===section)||SPECIALTIES[0];
+  useEffect(()=>setCluster("all"),[section]);
+  const clusters=useMemo(()=>{ const seen=[]; sec.conditions.forEach(c=>{const k=c.cluster||"Other"; if(!seen.includes(k)) seen.push(k);}); return seen; },[sec]);
+  const ql=q.trim().toLowerCase();
+  const list=sec.conditions.filter(c=>{
+    if(cluster!=="all" && (c.cluster||"Other")!==cluster) return false;
+    if(filter!=="all"){ const s=statuses[c.id]; if(filter==="unset"? !!s : s!==filter) return false; }
+    if(!ql) return true;
+    return (c.name+" "+(c.keyFacts||"")+" "+(c.presentation||"")+" "+(c.investigations||"")+" "+(c.treatment||"")+" "+(c.cluster||"")).toLowerCase().includes(ql);
+  });
+  const sc=sectionScore(sec,statuses);
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:12,marginBottom:14}} className="noscroll">
+        {SPECIALTIES.map(s=>{
+          const on=s.id===sec.id, ss=sectionScore(s,statuses);
+          return (
+            <button key={s.id} onClick={()=>setSection(s.id)} className="press pill"
+              style={{flexShrink:0,padding:"9px 15px",fontSize:13,fontWeight:700,whiteSpace:"nowrap",
+                background:on?"var(--lime)":"var(--card)",color:on?"#0a0c0f":"var(--ink2)",
+                border:"1px solid "+(on?"var(--lime)":"var(--line)")}}>
+              {s.icon} {s.short}
+              <span style={{marginLeft:7,fontSize:11,opacity:.7}}>{pct(ss.frac)}%</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="card" style={{padding:18,marginBottom:14,display:"flex",gap:18,alignItems:"center"}}>
+        <div style={{position:"relative",flexShrink:0}}>
+          <Dial frac={sc.frac} size={84} stroke={9}/>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <span className="num" style={{fontSize:19}}>{pct(sc.frac)}%</span>
+          </div>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:18,fontWeight:800,lineHeight:1.25}}>{sec.icon} {sec.name}</div>
+          <div style={{fontSize:11.5,color:"var(--ink3)",marginTop:4}}>
+            {sec.marks>0? sec.marks+" marks · ":""}{sec.paper==="paper1"?"Paper 1":sec.paper==="paper2"?"Paper 2":"Both papers"} · {sc.rated}/{sc.total} rated
+          </div>
+          <div style={{marginTop:10}}><Seg counts={sc.counts} total={sc.total}/></div>
+        </div>
+      </div>
+      <div style={{fontSize:13,lineHeight:1.6,color:"var(--ink2)",marginBottom:14,padding:"0 2px"}}>{sec.blurb}</div>
+
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder={"Search "+sec.conditions.length+" "+(sec.itemNoun||"topics")+"…"}
+        style={{width:"100%",background:"var(--card)",border:"1px solid var(--line)",borderRadius:14,color:"var(--ink)",
+          padding:"13px 15px",fontSize:14.5,marginBottom:10,outline:"none"}}/>
+
+      <div style={{display:"flex",gap:7,overflowX:"auto",paddingBottom:10,marginBottom:6}} className="noscroll">
+        {[["all","All"],["unset","New"],["red","😖 Weak"],["amber","😐 Shaky"],["green","💪 Solid"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setFilter(v)} className="pill"
+            style={{flexShrink:0,padding:"7px 14px",fontSize:12.5,fontWeight:700,
+              background:filter===v?"var(--card2)":"transparent",color:filter===v?"var(--lime)":"var(--ink3)",
+              border:"1px solid "+(filter===v?"var(--lime2)":"var(--line)")}}>{l}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:7,overflowX:"auto",paddingBottom:12,marginBottom:12}} className="noscroll">
+        <button onClick={()=>setCluster("all")} className="pill"
+          style={{flexShrink:0,padding:"7px 14px",fontSize:12,fontWeight:700,whiteSpace:"nowrap",
+            background:cluster==="all"?"var(--card2)":"transparent",color:cluster==="all"?"var(--ink)":"var(--ink3)",
+            border:"1px solid var(--line)"}}>All groups</button>
+        {clusters.map(k=>(
+          <button key={k} onClick={()=>setCluster(k)} className="pill"
+            style={{flexShrink:0,padding:"7px 14px",fontSize:12,fontWeight:700,whiteSpace:"nowrap",
+              background:cluster===k?"var(--card2)":"transparent",color:cluster===k?"var(--ink)":"var(--ink3)",
+              border:"1px solid var(--line)"}}>{k}</button>
+        ))}
+      </div>
+
+      {list.map(c=>(
+        <Topic key={c.id} c={c} sec={sec} status={statuses[c.id]} note={notes[c.id]}
+          setStatus={setStatus} setNote={setNote} open={!!open[c.id]} toggle={()=>setOpen({...open,[c.id]:!open[c.id]})}/>
+      ))}
+      {!list.length && <div className="card" style={{padding:30,textAlign:"center",color:"var(--ink3)",fontSize:13.5}}>Nothing here. Try another filter.</div>}
+    </div>
+  );
+}
+
+/* ---------- PLAN ---------- */
+function PlanView({hours,setHours,examISO,startISO,setExam,setView,setSection}){
+  const step=stepOf(startISO,examISO), pi=phaseIdxOf(step);
+  const totalDays=Math.max(22,daysBetween(startISO,examISO)), perStep=totalDays/22;
+  const dateOf=s=>localISO(new Date(parseISO(startISO).getTime()+Math.round((s-1)*perStep)*DAY));
+  return (
+    <div>
+      <div className="card" style={{padding:22,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:14}}>
+          <Cap>Hours a week</Cap>
+          <div className="num" style={{fontSize:34,color:"var(--lime)"}}>{hours}</div>
+        </div>
+        <input type="range" min="3" max="40" value={hours} style={{"--pct":((hours-3)/37*100)+"%"}}
+          onChange={e=>setHours(+e.target.value)}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--ink3)",marginTop:10}}>
+          <span>3</span><span>be honest — on-calls happen</span><span>40</span>
+        </div>
+        <div style={{marginTop:20,paddingTop:16,borderTop:"1px solid var(--line)"}}>
+          <Cap style={{marginBottom:8}}>Exam date</Cap>
+          <input type="date" value={examISO} onChange={e=>e.target.value&&setExam(e.target.value)}
+            style={{width:"100%",background:"var(--card2)",border:"1px solid var(--line)",color:"var(--ink)",
+              padding:"12px 14px",borderRadius:13,fontSize:15,colorScheme:"dark",outline:"none"}}/>
+          <div style={{fontSize:11.5,color:"var(--ink3)",marginTop:9,lineHeight:1.6}}>
+            The 22-step plan stretches to fill the {totalDays} days from {fmtDate(startISO)} to the sitting.
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:5,marginBottom:18}}>
+        {PHASES.map((p,i)=>(
+          <div key={p.id} style={{flex:p.weekEnd-p.weekStart+1,height:7,borderRadius:4,
+            background:i<=pi?p.color:"#1e242c",opacity:i===pi?1:i<pi?.5:1}}/>
+        ))}
+      </div>
+
+      {PHASES.map((p,i)=>{
+        const on=i===pi, s=hours/(5*p.weekdayHrsBase+2*p.dayOffHrsBase);
+        return (
+          <div key={p.id} className="card" style={{padding:20,marginBottom:12,
+            borderColor:on?p.color:"var(--line)", background:on?"var(--card2)":"var(--card)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <span style={{width:11,height:11,borderRadius:"50%",background:p.color}}/>
+              <h2 style={{fontSize:21}}>{p.name}</h2>
+              {on && <span className="pill" style={{fontSize:9.5,fontWeight:800,padding:"3px 10px",background:p.color,color:"#0a0c0f"}}>NOW</span>}
+              <span style={{flex:1}}/>
+              <span style={{fontSize:11,color:"var(--ink3)"}}>{fmtDate(dateOf(p.weekStart))} → {fmtDate(dateOf(p.weekEnd))}</span>
+            </div>
+            <div style={{display:"flex",gap:20,marginTop:14}}>
+              <div><div className="num" style={{fontSize:21,color:p.color}}>{(p.weekdayHrsBase*s).toFixed(1)}h</div><Cap style={{fontSize:9}}>weekday</Cap></div>
+              <div><div className="num" style={{fontSize:21,color:p.color}}>{(p.dayOffHrsBase*s).toFixed(1)}h</div><Cap style={{fontSize:9}}>day off</Cap></div>
+              <div><div className="num" style={{fontSize:21}}>{Math.round(p.qsPerWeekdayBase*s)}</div><Cap style={{fontSize:9}}>questions/day</Cap></div>
+            </div>
+            <p style={{fontSize:13.5,lineHeight:1.68,color:"var(--ink2)",margin:"14px 0 0"}}>{p.goal}</p>
+            <ul style={{margin:"12px 0 0",paddingLeft:18,fontSize:13,lineHeight:1.7,color:"var(--ink2)"}}>
+              {p.strategy.map((x,j)=><li key={j} style={{marginBottom:6}}>{x}</li>)}
+            </ul>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:14}}>
+              {p.systems.map((x,j)=>(
+                <button key={j} onClick={()=>{ if(x.trackerId){setSection(x.trackerId);setView("tracker");} }} className="pill"
+                  style={{fontSize:11.5,fontWeight:600,padding:"6px 12px",background:"#0e1116",border:"1px solid var(--line)",
+                    color:x.trackerId?"var(--lime)":"var(--ink3)",cursor:x.trackerId?"pointer":"default"}}>{x.name}</button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <Cap style={{margin:"22px 0 10px"}}>Strategy</Cap>
+      {TIPS.map((t,i)=>(
+        <div key={i} className="card" style={{padding:17,marginBottom:9}}>
+          <div style={{fontSize:14.5,fontWeight:800}}>{t.icon} {t.title}</div>
+          <p style={{fontSize:13,lineHeight:1.7,color:"var(--ink2)",margin:"8px 0 0"}}>{t.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- APP ---------- */
+function App(){
+  const [view,setView]=useState(()=>load(K.view,"home"));
+  const [statuses,setStatuses]=useState(()=>load(K.status,{}));
+  const [changedAt,setChangedAt]=useState(()=>load(K.changed,{}));
+  const [notes,setNotes]=useState(()=>load(K.notes,{}));
+  const [hours,setHours]=useState(()=>load(K.hours,12));
+  const [examISO,setExam]=useState(()=>load(K.exam,window.EXAM_DATE));
+  const [startISO,setStart]=useState(()=>load(K.start,window.PLAN_START));
+  const [section,setSection]=useState(()=>load(K.section,SPECIALTIES[0].id));
+  const [dayOv,setDayOv]=useState(()=>load(K.day,{}));
+  const [log,setLog]=useState(()=>load(K.log,{}));
+
+  useEffect(()=>save(K.view,view),[view]);
+  useEffect(()=>save(K.status,statuses),[statuses]);
+  useEffect(()=>save(K.changed,changedAt),[changedAt]);
+  useEffect(()=>save(K.notes,notes),[notes]);
+  useEffect(()=>save(K.hours,hours),[hours]);
+  useEffect(()=>save(K.exam,examISO),[examISO]);
+  useEffect(()=>save(K.start,startISO),[startISO]);
+  useEffect(()=>save(K.section,section),[section]);
+  useEffect(()=>save(K.day,dayOv),[dayOv]);
+  useEffect(()=>save(K.log,log),[log]);
+  useEffect(()=>{ if(!load(K.start,null)){ setStart(localISO()); save(K.start,localISO()); } },[]);
+
+  const touch=()=>setLog(p=>p[localISO()]?p:{...p,[localISO()]:true});
+  const setStatus=(id,val)=>{ setStatuses(p=>{const n={...p}; if(val)n[id]=val; else delete n[id]; return n;});
+    setChangedAt(p=>({...p,[id]:Date.now()})); touch(); };
+  const setNote=(id,val)=>{ setNotes(p=>{const n={...p}; if(val)n[id]=val; else delete n[id]; return n;}); touch(); };
+  const setDayType=(k,t)=>setDayOv(p=>{const n={...p}; if(t)n[k]=t; else delete n[k]; return n;});
+
+  return (
+    <div>
+      <div className="wrap" style={{maxWidth:640,margin:"0 auto",padding:"20px 16px 96px",
+        paddingTop:"calc(18px + env(safe-area-inset-top))"}}>
+        {view==="home" && <HomeView statuses={statuses} examISO={examISO} startISO={startISO}
+          setView={setView} setSection={setSection} log={log}/>}
+        {view==="today" && <TodayView statuses={statuses} hours={hours} examISO={examISO} startISO={startISO}
+          setView={setView} setSection={setSection} dayOv={dayOv} setDayType={setDayType} log={log}/>}
+        {view==="tracker" && <TrackerView statuses={statuses} notes={notes} setStatus={setStatus} setNote={setNote}
+          section={section} setSection={setSection}/>}
+        {view==="plan" && <PlanView hours={hours} setHours={setHours} examISO={examISO} startISO={startISO}
+          setExam={setExam} setView={setView} setSection={setSection}/>}
+        <div style={{marginTop:34,paddingTop:16,borderTop:"1px solid var(--line)",fontSize:10.5,color:"var(--ink3)",lineHeight:1.8}}>
+          VERSION 3 — “WARD ROUND” · {window.TOTAL_TOPICS} topics across {SPECIALTIES.length} sections<br/>
+          Built from the Intercollegiate MRCS candidate guide (July 2018) and the ISCP Core Surgical Training syllabus.
+          Progress is shared with versions 1 and 2 on this device.
+        </div>
+      </div>
+      <TabBar view={view} setView={setView}/>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
